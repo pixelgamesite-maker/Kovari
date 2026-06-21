@@ -19,6 +19,7 @@ export type Collection = {
   totalMinted: number;
   tradingLocked: boolean;
   bannerColor: string;
+  chainId: 1 | 8453; // 1 = Ethereum mainnet, 8453 = Base mainnet
   phases: Phase[];
 };
 
@@ -33,6 +34,7 @@ export const mockCollections: Collection[] = [
     totalMinted: 5821,
     tradingLocked: true,
     bannerColor: '#2D6BFF',
+    chainId: 8453,
     phases: [
       { index: 1, name: 'Founders', cap: 2000, minted: 2000, priceEth: 0, status: 'completed', walletGated: true },
       { index: 2, name: 'Allowlist', cap: 4000, minted: 3821, priceEth: 0.02, status: 'active', walletGated: true },
@@ -48,6 +50,7 @@ export const mockCollections: Collection[] = [
     totalMinted: 1349,
     tradingLocked: false,
     bannerColor: '#E5484D',
+    chainId: 1,
     phases: [
       { index: 1, name: 'Chosen', cap: 1500, minted: 1500, priceEth: 0.015, status: 'completed', walletGated: true },
       { index: 2, name: 'Unleashed', cap: 2500, minted: 1349, priceEth: 0.015, status: 'active', walletGated: false },
@@ -55,6 +58,9 @@ export const mockCollections: Collection[] = [
   },
 ];
 
-export function getCollection(slug: string) {
+export function getCollectionBySlug(slug: string) {
   return mockCollections.find((c) => c.slug === slug);
 }
+
+// alias kept so existing call sites don't break
+export const getCollection = getCollectionBySlug;
