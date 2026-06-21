@@ -1,5 +1,5 @@
 import { Check, Lock, Users } from 'lucide-react';
-import { cn, formatCount } from '@/lib/utils';
+import { cn, formatCount, formatEther } from '@/lib/utils';
 import type { Phase } from '@/lib/mock-data';
 
 const statusStyles: Record<Phase['status'], string> = {
@@ -54,9 +54,9 @@ export function PhaseRoadmap({ phases }: { phases: Phase[] }) {
 
             <div className="mt-3 flex items-center gap-4 font-mono text-sm text-muted">
               <span>
-                <span className="text-foreground">{formatCount(phase.minted)}</span> / {formatCount(phase.cap)}
+                <span className="text-foreground">{formatCount(phase.minted)}</span> / {formatCount(phase.maxMints)}
               </span>
-              <span>{phase.priceEth === 0 ? 'Free' : `${phase.priceEth} ETH`}</span>
+              <span>{phase.price === '0' ? 'Free' : `${formatEther(BigInt(phase.price))} ETH`}</span>
             </div>
           </div>
         </li>
@@ -64,3 +64,4 @@ export function PhaseRoadmap({ phases }: { phases: Phase[] }) {
     </ol>
   );
 }
+          
