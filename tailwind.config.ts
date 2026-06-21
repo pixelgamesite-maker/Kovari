@@ -7,17 +7,21 @@ const config: Config = {
       colors: {
         background: '#0B0C11',
         panel: '#15161D',
-        foreground: '#F5F6FA',
-        muted: '#8B8FA3',
         border: '#262833',
+        foreground: '#F5F6FA',
+        'main-text': '#F5F6FA',
+        muted: '#8B8FA3',
+        'muted-text': '#8B8FA3',
         accent: {
           DEFAULT: '#2D6BFF',
           dim: '#1E4FCC',
         },
+        'accent-blue': '#2D6BFF',
         alert: {
           DEFAULT: '#E5484D',
           dim: '#B23438',
         },
+        'accent-red': '#E5484D',
       },
       fontFamily: {
         display: ['var(--font-display)'],
@@ -27,6 +31,8 @@ const config: Config = {
       boxShadow: {
         'glow-accent': '0 0 32px rgba(45,107,255,0.14)',
         'glow-alert': '0 0 32px rgba(229,72,77,0.14)',
+        'glow-blue-sm': '0 0 16px rgba(45,107,255,0.18)',
+        'glow-red-sm': '0 0 16px rgba(229,72,77,0.18)',
       },
       borderRadius: {
         xl: '14px',
