@@ -1,7 +1,11 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { formatEther as viemFormatEther } from 'viem';
 
-export { formatEther } from 'viem';
+export function formatEther(value: bigint | string | number): string {
+  const wei = typeof value === 'bigint' ? value : BigInt(value);
+  return viemFormatEther(wei);
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
