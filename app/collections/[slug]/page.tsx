@@ -1,12 +1,18 @@
 import { notFound } from 'next/navigation';
 import { TradingLockBadge } from '@/components/collection/TradingLockBadge';
+import { ChainBadge } from '@/components/collection/ChainBadge';
 import { MintProgress } from '@/components/collection/MintProgress';
 import { PhaseRoadmap } from '@/components/collection/PhaseRoadmap';
-import { getCollection } from '@/lib/mock-data';
+import { getCollectionBySlug } from '@/lib/mock-data';
 import { formatCount } from '@/lib/utils';
 
-export default function CollectionPage({ params }: { params: { slug: string } }) {
-  const collection = getCollection(params.slug);
+export default async function CollectionPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const collection = getCollectionBySlug(slug);
   if (!collection) notFound();
 
   const activePhase = collection.phases.find((p) => p.status === 'active');
@@ -22,6 +28,7 @@ export default function CollectionPage({ params }: { params: { slug: string } })
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-display text-3xl font-bold">{collection.name}</h1>
+            <ChainBadge chainId={collection.chainId} />
             <TradingLockBadge locked={collection.tradingLocked} />
           </div>
           <p className="mt-2 max-w-md text-muted">{collection.description}</p>
