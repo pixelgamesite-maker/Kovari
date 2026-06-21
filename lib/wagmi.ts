@@ -2,6 +2,10 @@ import { http } from 'wagmi';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { mainnet, base } from 'wagmi/chains';
 
+// Supporting both chains means your factory + collection template contracts
+// need to be deployed separately on each one - this config just points the
+// frontend at the right RPC per chain, it doesn't make the contracts exist.
+//
 // Put the actual key/URLs in .env.local, never hardcode them here.
 export const wagmiConfig = getDefaultConfig({
   appName: 'Launchpad',
@@ -13,8 +17,3 @@ export const wagmiConfig = getDefaultConfig({
   },
   ssr: true,
 });
-
-export const chainMeta = {
-  [mainnet.id]: { label: 'Ethereum', color: '#627EEA' },
-  [base.id]: { label: 'Base', color: '#0052FF' },
-} as const;
