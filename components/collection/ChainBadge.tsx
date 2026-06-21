@@ -1,4 +1,4 @@
-import { chainMeta } from '@/lib/wagmi';
+import { chainMeta } from '@/lib/chains';
 
 export function ChainBadge({ chainId }: { chainId: keyof typeof chainMeta }) {
   const meta = chainMeta[chainId];
