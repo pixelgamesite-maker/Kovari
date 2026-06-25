@@ -1,215 +1,184 @@
-import { notFound } from "next/navigation";
-import { getCollectionBySlug } from "@/lib/mock-data";
-import { PhaseRoadmap } from "@/components/collection/PhaseRoadmap";
-import { MintProgress } from "@/components/collection/MintProgress";
-import { TradingLockBadge } from "@/components/collection/TradingLockBadge";
-import { Button } from "@/components/ui/button";
-import { formatCount, formatEther, shortenAddress } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+"use client";
+
+import { useMemo } from "react";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Globe, Twitter, MessageCircle, ExternalLink, Copy, Check } from "lucide-react";
+import { useCollectionInfo, useTotalPhases, useTotalTicketPhases } from "@/hooks/useCollection";
+import { MintProgress } from "@/components/collection/MintProgress";
+import { PhaseRoadmap } from "@/components/collection/PhaseRoadmap";
+import { TradingLockBadge } from "@/components/collection/TradingLockBadge";
+import { ChainBadge } from "@/components/collection/ChainBadge";
+import { shortenAddress, formatCount } from "@/lib/utils";
+import { useAccount, useChainId } from "wagmi";
+import { type Address, isAddress } from "viem";
+import { ImageOff, ExternalLink, Crown } from "lucide-react";
+import Link from "next/link";
 
-interface Props {
-  params: Promise<{ slug: string }>;
-}
+export default function CollectionPage() {
+  const { slug } = useParams();
+  const address = slug as Address;
+  const { address: userAddress } = useAccount();
+  const chainId = useChainId();
 
-export default async function CollectionPage({ params }: Props) {
-  const { slug } = await params;
-  const collection = getCollectionBySlug(slug);
+  const {
+    name, symbol, maxSupply, totalSupply, revealed,
+    tradingLocked, owner, placeholderURI, platformFlatFee, isLoading
+  } = useCollectionInfo(address);
 
-  if (!collection) {
-    notFound();
+  const { data: totalPhases } = useTotalPhases(address);
+  const { data: totalTicketPhases } = useTotalTicketPhases(address);
+
+  const isOwner = userAddress?.toLowerCase() === owner?.toLowerCase();
+  const minted = totalSupply ?? 0n;
+
+  const isUnlimited = maxSupply === 0n;
+  const supply = isUnlimited ? null : (maxSupply ?? 1n);
+  const pct = supply && supply > 0n
+    ? Math.round((Number(minted) / Number(supply)) * 100)
+    : 0;
+
+  const phaseIds = useMemo(() =>
+    totalPhases ? Array.from({ length: Number(totalPhases) }, (_, i) => i) : [],
+    [totalPhases]
+  );
+
+  if (!isAddress(address)) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 text-center text-red-400">
+        Invalid collection address
+      </div>
+    );
   }
 
-  const currentPhase = collection.phases.find((p) => {
-    const now = Date.now();
-    return p.startTime <= now && (p.endTime === null || p.endTime > now);
-  });
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <div className="animate-pulse space-y-4 max-w-md mx-auto">
+          <div className="h-64 rounded-xl bg-panel" />
+          <div className="h-8 w-1/2 rounded bg-panel mx-auto" />
+          <div className="h-4 w-1/3 rounded bg-panel mx-auto" />
+        </div>
+      </div>
+    );
+  }
 
-  const isLive = collection.status === "live";
+  if (!name) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 text-center text-muted-text">
+        Collection not found or failed to load
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen">
-      {/* Banner */}
-      <div className="relative h-48 sm:h-64 lg:h-80 overflow-hidden">
-        <Image
-          src={collection.banner}
-          alt={collection.name}
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6 flex items-center gap-2 text-sm text-muted-text">
+        <Link href="/" className="hover:text-main-text transition-colors">Discover</Link>
+        <span>/</span>
+        <span className="text-main-text">{name}</span>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-16 relative pb-16">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column */}
-          <div className="lg:w-2/3">
-            {/* Header */}
-            <div className="flex items-end gap-4 mb-6">
-              <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-2xl border-4 border-background overflow-hidden shadow-2xl bg-panel">
-                <Image
-                  src={collection.image}
-                  alt={collection.name}
-                  fill
-                  className="object-cover"
-                />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="lg:col-span-5 space-y-6">
+          <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-panel">
+            {placeholderURI ? (
+              <Image
+                src={placeholderURI}
+                alt={name}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-text">
+                <ImageOff size={64} />
               </div>
-              <div className="pb-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-main-text">
-                    {collection.name}
-                  </h1>
-                  {collection.creator.verified && (
-                    <div className="h-5 w-5 rounded-full bg-accent-blue flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                </div>
-                <p className="text-sm text-muted-text">
-                  by{" "}
-                  <span className="text-main-text font-medium">
-                    {collection.creator.name}
-                  </span>
-                </p>
+            )}
+            {tradingLocked && (
+              <div className="absolute top-4 right-4">
+                <TradingLockBadge lock={true} />
               </div>
-            </div>
-
-            {/* Tags & Chain */}
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              <Badge variant="chain">
-                {collection.chainId === 1 ? "Ethereum" : "Base"}
-              </Badge>
-              {collection.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="text-xs px-2.5 py-1 rounded-full bg-panel border border-border text-muted-text"
-                >
-                  {tag}
-                </span>
-              ))}
-              <Badge
-                variant={
-                  collection.status === "live"
-                    ? "live"
-                    : collection.status === "upcoming"
-                    ? "upcoming"
-                    : collection.status === "sold-out"
-                    ? "soldout"
-                    : "ended"
-                }
+            )}
+            {isOwner && (
+              <Link
+                href={`/dashboard/${address}`}
+                className="absolute top-4 left-4 rounded-lg bg-accent-blue/90 px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 hover:bg-accent-blue transition-colors"
               >
-                {collection.status}
-              </Badge>
-            </div>
-
-            {/* Description */}
-            <p className="text-muted-text leading-relaxed mb-8">
-              {collection.description}
-            </p>
-
-            {/* Contract Info */}
-            <div className="rounded-xl border border-border bg-panel/50 p-4 mb-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-text mb-1">Contract</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm text-main-text font-mono">
-                      {shortenAddress(collection.contractAddress)}
-                    </code>
-                    <button className="text-muted-text hover:text-accent-blue transition-colors">
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-text mb-1">Royalties</p>
-                  <p className="text-sm text-main-text font-medium">
-                    {collection.royalties / 100}%
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Phase Roadmap */}
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-main-text mb-4">Mint Phases</h2>
-              <PhaseRoadmap phases={collection.phases} />
-            </div>
+                <Crown size={14} />
+                Dashboard
+              </Link>
+            )}
           </div>
 
-          {/* Right Column - Mint Card */}
-          <div className="lg:w-1/3">
-            <div className="sticky top-24 space-y-4">
-              {/* Mint Card */}
-              <div className="rounded-2xl border border-border bg-panel p-6">
-                <MintProgress
-                  minted={collection.minted}
-                  totalSupply={collection.totalSupply}
-                  size="lg"
-                />
+          <div className="rounded-xl border border-border bg-panel p-5 space-y-4">
+            <h3 className="font-semibold text-main-text">Collection Info</h3>
 
-                {isLive && currentPhase ? (
-                  <div className="mt-6 space-y-4">
-                    <div className="flex items-center justify-between py-3 border-b border-border">
-                      <span className="text-sm text-muted-text">Current Price</span>
-                      <span className="text-lg font-bold text-main-text">
-                        {currentPhase.price === "0"
-                          ? "Free"
-                          : `${formatEther(currentPhase.price)} ETH`}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-3 border-b border-border">
-                      <span className="text-sm text-muted-text">Max Per Wallet</span>
-                      <span className="text-sm font-medium text-main-text">
-                        {currentPhase.maxPerWallet}
-                      </span>
-                    </div>
-                    <Button className="w-full h-12 text-base" disabled={collection.status === "sold-out"}>
-                      {collection.status === "sold-out" ? "Sold Out" : "Mint Now"}
-                    </Button>
-                  </div>
-                ) : collection.status === "upcoming" ? (
-                  <div className="mt-6 text-center py-4">
-                    <p className="text-muted-text text-sm">Minting starts soon</p>
-                  </div>
-                ) : (
-                  <div className="mt-6 text-center py-4">
-                    <p className="text-muted-text text-sm">Minting has ended</p>
-                  </div>
-                )}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="block text-xs text-muted-text mb-1">Contract</span>
+                <a
+                  href={`https://sepolia.etherscan.io/address/${address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-accent-blue hover:underline flex items-center gap-1"
+                >
+                  {shortenAddress(address)}
+                  <ExternalLink size={12} />
+                </a>
               </div>
-
-              {/* Trading Lock */}
-              <TradingLockBadge lock={collection.tradingLock} />
-
-              {/* Creator Card */}
-              <div className="rounded-2xl border border-border bg-panel p-5">
-                <p className="text-xs text-muted-text uppercase tracking-wider mb-3">
-                  Creator
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-10 rounded-full overflow-hidden">
-                    <Image
-                      src={collection.creator.avatar}
-                      alt={collection.creator.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-main-text">
-                      {collection.creator.name}
-                    </p>
-                    <p className="text-xs text-muted-text font-mono">
-                      {shortenAddress(collection.creator.address)}
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <span className="block text-xs text-muted-text mb-1">Creator</span>
+                <span className="font-mono text-main-text">{shortenAddress(owner ?? "0x")}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-text mb-1">Symbol</span>
+                <span className="font-mono text-main-text">${symbol}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-text mb-1">Chain</span>
+                <ChainBadge chainId={chainId} />
               </div>
             </div>
+
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-text">Minted</span>
+                <span className="font-mono text-sm">
+                  {formatCount(minted)} / {supply !== null ? formatCount(supply) : "∞"}
+                  {supply !== null && ` (${pct}%)`}
+                </span>
+              </div>
+              {supply !== null && (
+                <div className="h-2 w-full rounded-full bg-background overflow-hidden">
+                  <div className="h-full rounded-full bg-accent-blue transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              )}
+            </div>
+
+            {revealed && (
+              <div className="pt-2 text-xs text-green-400">✓ Revealed</div>
+            )}
           </div>
+        </div>
+
+        <div className="lg:col-span-7 space-y-6">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-main-text mb-2">{name}</h1>
+            <p className="text-muted-text">${symbol} on Sepolia Testnet</p>
+          </div>
+
+          <MintProgress collection={address} platformFlatFee={platformFlatFee} />
+
+          {phaseIds.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-main-text">Mint Phases</h3>
+              <div className="space-y-3">
+                {phaseIds.map((id) => (
+                  <PhaseRoadmap key={id} collection={address} phaseId={id} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
