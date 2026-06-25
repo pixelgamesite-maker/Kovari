@@ -1,67 +1,111 @@
-import { Check, Lock, Users } from 'lucide-react';
-import { cn, formatCount, formatEther } from '@/lib/utils';
-import type { Phase } from '@/lib/mock-data';
+"use client";
 
-const statusStyles: Record<Phase['status'], string> = {
-  completed: 'border-border text-muted',
-  active: 'border-accent/40 bg-accent/[0.06] shadow-glow-accent',
-  upcoming: 'border-border text-muted opacity-60',
-};
+import { usePhase } from "@/hooks/useCollection";
+import { isPhaseActive, formatEther, formatDate } from "@/lib/utils";
+import { type Address } from "viem";
+import { Lock, Unlock, Clock, CheckCircle } from "lucide-react";
 
-export function PhaseRoadmap({ phases }: { phases: Phase[] }) {
+interface Props {
+  collection: Address;
+  phaseId: number;
+}
+
+export function PhaseRoadmap({ collection, phaseId }: Props) {
+  const { phase, phaseMinted, claimed } = usePhase(collection, phaseId);
+
+  if (!phase) {
+    return (
+      <div className="rounded-xl border border-border bg-panel p-4 animate-pulse">
+        <div className="h-4 w-1/3 rounded bg-background mb-2" />
+        <div className="h-3 w-2/3 rounded bg-background" />
+      </div>
+    );
+  }
+
+  const { status, label } = isPhaseActive(phase.startTime, phase.endTime, phase.active);
+  const isAllowlist = phase.merkleRoot !== "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const isPublic = !isAllowlist;
+
+  const statusConfig = {
+    live: {
+      border: "border-green-500/30",
+      bg: "bg-green-500/5",
+      icon: <Unlock size={16} className="text-green-400" />,
+      badge: "bg-green-500/10 text-green-400"
+    },
+    upcoming: {
+      border: "border-yellow-500/30",
+      bg: "bg-yellow-500/5",
+      icon: <Clock size={16} className="text-yellow-400" />,
+      badge: "bg-yellow-500/10 text-yellow-400"
+    },
+    ended: {
+      border: "border-border",
+      bg: "bg-background",
+      icon: <CheckCircle size={16} className="text-muted-text" />,
+      badge: "bg-muted-text/10 text-muted-text"
+    },
+  }[status];
+
+  const remaining = phase.maxSupply > 0n
+    ? ((phaseMinted ?? 0n) >= BigInt(phase.maxSupply)
+        ? 0n
+        : BigInt(phase.maxSupply) - (phaseMinted ?? 0n))
+    : null;
+
   return (
-    <ol className="relative">
-      {phases.map((phase, i) => (
-        <li key={phase.index} className="relative pl-10 pb-8 last:pb-0">
-          {/* connector line */}
-          {i < phases.length - 1 && (
-            <span className="absolute left-[15px] top-7 h-full w-px bg-border" aria-hidden />
+    <div className={`rounded-xl border p-4 transition-all ${statusConfig.border} ${statusConfig.bg} ${
+      status === "ended" ? "opacity-60" : ""
+    }`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {statusConfig.icon}
+          <span className="font-semibold text-main-text">{phase.name}</span>
+          {isAllowlist && (
+            <span className="rounded bg-accent-blue/10 px-2 py-0.5 text-xs text-accent-blue font-medium">
+              Allowlist
+            </span>
           )}
+          {isPublic && (
+            <span className="rounded bg-green-500/10 px-2 py-0.5 text-xs text-green-400 font-medium">
+              Public
+            </span>
+          )}
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusConfig.badge}`}>
+          {label}
+        </span>
+      </div>
 
-          {/* marker - numbered because phase order genuinely gates the next phase */}
-          <span
-            className={cn(
-              'absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border font-mono text-xs',
-              phase.status === 'completed' && 'border-accent bg-accent text-white',
-              phase.status === 'active' && 'border-accent text-accent',
-              phase.status === 'upcoming' && 'border-border text-muted'
-            )}
-          >
-            {phase.status === 'completed' ? <Check size={14} /> : phase.index}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div>
+          <span className="block text-xs text-muted-text mb-1 uppercase tracking-wider">Price</span>
+          <span className="font-mono text-main-text">{formatEther(phase.price)} ETH</span>
+        </div>
+        <div>
+          <span className="block text-xs text-muted-text mb-1 uppercase tracking-wider">Minted</span>
+          <span className="font-mono text-main-text">
+            {phaseMinted?.toString() ?? "0"} / {phase.maxSupply > 0n ? phase.maxSupply.toString() : "∞"}
           </span>
+          {remaining !== null && remaining > 0n && remaining <= 10n && (
+            <span className="block text-xs text-red-400 mt-0.5">{remaining.toString()} left!</span>
+          )}
+        </div>
+        <div>
+          <span className="block text-xs text-muted-text mb-1 uppercase tracking-wider">Per Wallet</span>
+          <span className="font-mono text-main-text">{phase.maxPerWallet > 0n ? phase.maxPerWallet.toString() : "∞"}</span>
+        </div>
+        <div>
+          <span className="block text-xs text-muted-text mb-1 uppercase tracking-wider">Start</span>
+          <span className="font-mono text-main-text">{formatDate(Number(phase.startTime))}</span>
+        </div>
+      </div>
 
-          <div className={cn('rounded-xl border p-4', statusStyles[phase.status])}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h3 className="font-display font-medium">{phase.name}</h3>
-                {phase.walletGated && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
-                    <Users size={11} /> allowlist
-                  </span>
-                )}
-              </div>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide',
-                  phase.status === 'completed' && 'text-muted',
-                  phase.status === 'active' && 'text-accent',
-                  phase.status === 'upcoming' && 'text-muted'
-                )}
-              >
-                {phase.status === 'completed' ? 'Ended' : phase.status === 'active' ? 'Live' : 'Upcoming'}
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-center gap-4 font-mono text-sm text-muted">
-              <span>
-                <span className="text-foreground">{formatCount(phase.minted)}</span> / {formatCount(phase.maxMints)}
-              </span>
-              <span>{phase.price === '0' ? 'Free' : `${formatEther(BigInt(phase.price))} ETH`}</span>
-            </div>
-          </div>
-        </li>
-      ))}
-    </ol>
+      {claimed && claimed > 0n && (
+        <div className="mt-3 pt-3 border-t border-border/50 text-xs text-muted-text">
+          You minted <span className="text-accent-blue font-mono">{claimed.toString()}</span> in this phase
+        </div>
+      )}
+    </div>
   );
 }
-          
