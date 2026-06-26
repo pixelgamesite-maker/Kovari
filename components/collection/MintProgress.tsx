@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { useMint, usePhase, useTotalPhases } from "@/hooks/useCollection";
 import { getMerkleProof } from "@/lib/platform-api";
 import { formatEther, isPhaseActive } from "@/lib/utils";
-import { type Address } from "viem";
+import { type Address, zeroHash } from "viem";
 import { Minus, Plus, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
 
 interface Props {
@@ -20,12 +20,14 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [isFetchingProof, setIsFetchingProof] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
-  const { mint, isPending, hash } = useMint(collection);
+  // isConfirming/isConfirmed come from useWaitForTransactionReceipt inside
+  // useMint - don't show "success" until the tx is actually confirmed,
+  // since a broadcast transaction can still revert.
+  const { mint, isPending, hash, isConfirming, isConfirmed } = useMint(collection);
 
-  const phaseIds = useMemo(() =>
-    totalPhases ? Array.from({ length: Number(totalPhases) }, (_, i) => i) : [],
+  const phaseIds = useMemo(
+    () => (totalPhases ? Array.from({ length: Number(totalPhases) }, (_, i) => i) : []),
     [totalPhases]
   );
 
@@ -36,7 +38,6 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
     if (!address || effectivePhaseId === null || !phase || platformFlatFee === undefined) return;
 
     setError(null);
-    setSuccess(false);
     setIsFetchingProof(true);
 
     try {
@@ -57,7 +58,7 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
       }
 
       let proof: `0x${string}`[] = [];
-      const isAllowlist = phase.merkleRoot !== "0x0000000000000000000000000000000000000000000000000000000000000000";
+      const isAllowlist = phase.merkleRoot !== zeroHash;
 
       if (isAllowlist) {
         const proofRes = await getMerkleProof({
@@ -73,7 +74,8 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
 
       setIsFetchingProof(false);
       await mint(effectivePhaseId, quantity, proof, totalPayment);
-      setSuccess(true);
+      // No setSuccess(true) here - isConfirmed (from useWaitForTransactionReceipt)
+      // drives the success banner below once the tx actually lands.
     } catch (err: any) {
       setIsFetchingProof(false);
       setError(err.message || "Mint failed");
@@ -100,40 +102,46 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
   }
 
   const status = isPhaseActive(phase.startTime, phase.endTime, phase.active);
-  const isAllowlist = phase.merkleRoot !== "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const isAllowlist = phase.merkleRoot !== zeroHash;
   const unitPrice = phase.price + (platformFlatFee ?? 0n);
   const totalCost = BigInt(quantity) * unitPrice;
 
-  const remainingInPhase = phase.maxSupply > 0n
-    ? ((phaseMinted ?? 0n) >= BigInt(phase.maxSupply)
+  const remainingInPhase =
+    phase.maxSupply > 0n
+      ? (phaseMinted ?? 0n) >= BigInt(phase.maxSupply)
         ? 0n
-        : BigInt(phase.maxSupply) - (phaseMinted ?? 0n))
-    : null;
+        : BigInt(phase.maxSupply) - (phaseMinted ?? 0n)
+      : null;
 
-  const walletRemaining = phase.maxPerWallet > 0n
-    ? ((claimed ?? 0n) >= BigInt(phase.maxPerWallet)
+  const walletRemaining =
+    phase.maxPerWallet > 0n
+      ? (claimed ?? 0n) >= BigInt(phase.maxPerWallet)
         ? 0n
-        : BigInt(phase.maxPerWallet) - (claimed ?? 0n))
-    : null;
+        : BigInt(phase.maxPerWallet) - (claimed ?? 0n)
+      : null;
 
   return (
     <div className="rounded-xl border border-border bg-panel p-6">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-main-text">Mint</h3>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-          status.status === "live"
-            ? "bg-green-500/10 text-green-400"
-            : status.status === "upcoming"
-            ? "bg-yellow-500/10 text-yellow-400"
-            : "bg-muted-text/10 text-muted-text"
-        }`}>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            status.status === "live"
+              ? "bg-green-500/10 text-green-400"
+              : status.status === "upcoming"
+              ? "bg-yellow-500/10 text-yellow-400"
+              : "bg-muted-text/10 text-muted-text"
+          }`}
+        >
           {status.label}
         </span>
       </div>
 
       {phaseIds.length > 1 && (
         <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">Phase</label>
+          <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">
+            Phase
+          </label>
           <div className="flex flex-wrap gap-2">
             {phaseIds.map((id) => (
               <PhaseButton
@@ -141,7 +149,10 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
                 collection={collection}
                 phaseId={id}
                 isSelected={id === effectivePhaseId}
-                onSelect={() => { setSelectedPhaseId(id); setError(null); setSuccess(false); }}
+                onSelect={() => {
+                  setSelectedPhaseId(id);
+                  setError(null);
+                }}
               />
             ))}
           </div>
@@ -152,7 +163,9 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
         <div className="rounded-lg bg-background p-3">
           <span className="block text-xs text-muted-text mb-1">Price per NFT</span>
           <span className="font-mono text-main-text">{formatEther(phase.price)} ETH</span>
-          <span className="block text-xs text-muted-text mt-1">+ {formatEther(platformFlatFee ?? 0n)} fee</span>
+          <span className="block text-xs text-muted-text mt-1">
+            + {formatEther(platformFlatFee ?? 0n)} fee
+          </span>
         </div>
         <div className="rounded-lg bg-background p-3">
           <span className="block text-xs text-muted-text mb-1">Minted</span>
@@ -160,7 +173,9 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
             {phaseMinted?.toString() ?? "0"} / {phase.maxSupply > 0n ? phase.maxSupply.toString() : "∞"}
           </span>
           {remainingInPhase !== null && (
-            <span className="block text-xs text-muted-text mt-1">{remainingInPhase.toString()} remaining</span>
+            <span className="block text-xs text-muted-text mt-1">
+              {remainingInPhase.toString()} remaining
+            </span>
           )}
         </div>
       </div>
@@ -173,11 +188,13 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
       )}
 
       <div className="mb-4">
-        <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">Quantity</label>
+        <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">
+          Quantity
+        </label>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            disabled={quantity <= 1 || isPending || isFetchingProof}
+            disabled={quantity <= 1 || isPending || isConfirming || isFetchingProof}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background hover:border-accent-blue/50 disabled:opacity-50 transition-colors"
           >
             <Minus size={16} />
@@ -188,21 +205,30 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
               const max = walletRemaining !== null ? Number(walletRemaining) : 10;
               setQuantity(Math.min(max, quantity + 1));
             }}
-            disabled={isPending || isFetchingProof || (walletRemaining !== null && quantity >= Number(walletRemaining))}
+            disabled={
+              isPending ||
+              isConfirming ||
+              isFetchingProof ||
+              (walletRemaining !== null && quantity >= Number(walletRemaining))
+            }
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background hover:border-accent-blue/50 disabled:opacity-50 transition-colors"
           >
             <Plus size={16} />
           </button>
         </div>
         {walletRemaining !== null && walletRemaining > 0n && (
-          <p className="mt-1 text-xs text-muted-text">{walletRemaining.toString()} remaining for your wallet</p>
+          <p className="mt-1 text-xs text-muted-text">
+            {walletRemaining.toString()} remaining for your wallet
+          </p>
         )}
       </div>
 
       <div className="mb-4 rounded-lg bg-background p-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-text">Total</span>
-          <span className="font-mono text-lg font-semibold text-main-text">{formatEther(totalCost)} ETH</span>
+          <span className="font-mono text-lg font-semibold text-main-text">
+            {formatEther(totalCost)} ETH
+          </span>
         </div>
       </div>
 
@@ -212,22 +238,30 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
         </div>
       )}
 
-      {success && hash && (
+      {isConfirmed && hash && (
         <div className="mb-4 rounded-lg bg-green-500/5 border border-green-500/20 p-3 text-sm text-green-400 flex items-center gap-2">
           <CheckCircle size={16} />
-          <span>Mint successful! Tx: {hash.slice(0, 10)}...</span>
+          <span>Mint confirmed! Tx: {hash.slice(0, 10)}...</span>
         </div>
       )}
 
       <button
         onClick={handleMint}
-        disabled={status.status !== "live" || isPending || isFetchingProof}
+        disabled={status.status !== "live" || isPending || isConfirming || isFetchingProof}
         className="w-full rounded-lg bg-accent-blue py-3.5 font-medium text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
       >
         {isFetchingProof ? (
-          <><Loader2 size={18} className="animate-spin" /> Fetching proof...</>
+          <>
+            <Loader2 size={18} className="animate-spin" /> Fetching proof...
+          </>
         ) : isPending ? (
-          <><Loader2 size={18} className="animate-spin" /> Confirm in wallet...</>
+          <>
+            <Loader2 size={18} className="animate-spin" /> Confirm in wallet...
+          </>
+        ) : isConfirming ? (
+          <>
+            <Loader2 size={18} className="animate-spin" /> Waiting for confirmation...
+          </>
         ) : status.status !== "live" ? (
           status.label
         ) : (
@@ -238,8 +272,16 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
   );
 }
 
-function PhaseButton({ collection, phaseId, isSelected, onSelect }: {
-  collection: Address; phaseId: number; isSelected: boolean; onSelect: () => void;
+function PhaseButton({
+  collection,
+  phaseId,
+  isSelected,
+  onSelect,
+}: {
+  collection: Address;
+  phaseId: number;
+  isSelected: boolean;
+  onSelect: () => void;
 }) {
   const { phase } = usePhase(collection, phaseId);
   const status = phase ? isPhaseActive(phase.startTime, phase.endTime, phase.active) : null;
@@ -255,10 +297,15 @@ function PhaseButton({ collection, phaseId, isSelected, onSelect }: {
     >
       <span className="font-medium">{phase?.name ?? `Phase ${phaseId}`}</span>
       {status && (
-        <span className={`ml-2 text-xs ${
-          status.status === "live" ? "text-green-400" :
-          status.status === "upcoming" ? "text-yellow-400" : "text-muted-text"
-        }`}>
+        <span
+          className={`ml-2 text-xs ${
+            status.status === "live"
+              ? "text-green-400"
+              : status.status === "upcoming"
+              ? "text-yellow-400"
+              : "text-muted-text"
+          }`}
+        >
           {status.status === "live" ? "●" : status.status === "upcoming" ? "○" : "✓"}
         </span>
       )}
