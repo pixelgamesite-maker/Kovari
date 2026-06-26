@@ -22,6 +22,14 @@ const config: Config = {
           dim: '#B23438',
         },
         'accent-red': '#E5484D',
+        // Kovari-prefixed tokens - same palette, third naming convention
+        'kovari-bg': '#0B0C11',
+        'kovari-panel': '#15161D',
+        'kovari-border': '#262833',
+        'kovari-text': '#F5F6FA',
+        'kovari-muted': '#8B8FA3',
+        'kovari-blue': '#2D6BFF',
+        'kovari-red': '#E5484D',
       },
       fontFamily: {
         display: ['var(--font-display)'],
