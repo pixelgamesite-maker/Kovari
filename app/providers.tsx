@@ -1,52 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+"use client";
 
-:root {
-  color-scheme: dark;
-}
+import { useState, useEffect } from "react";
+import { WagmiProvider } from "wagmi";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { wagmiConfig } from "@/lib/wagmi";
 
-html,
-body {
-  background-color: #0b0c11;
-  color: #f5f6fa;
-}
+// IMPORTANT: QueryClient must be created inside the component (via useState),
+// not at module scope. A module-scope client is shared across every request
+// the Next.js server handles, which can leak cached data between different
+// users' sessions under real traffic.
+export default function Providers({
+  children,
+  cookie,
+}: {
+  children: React.ReactNode;
+  cookie?: string | null;
+}) {
+  const [queryClient] = useState(() => new QueryClient());
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-* {
-  border-color: #262833;
-}
-
-/* Visible keyboard focus everywhere - don't strip this */
-:focus-visible {
-  outline: 2px solid #2d6bff;
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}
-
-.text-balance {
-  text-wrap: balance;
-}
-
-.text-gradient-blue {
-  background-image: linear-gradient(135deg, #2d6bff, #6ea8ff);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* Used as a standalone className (not bg-/border- prefixed) across the
-   rewritten pages - background + border + radius bundled together. */
-.kovari-panel {
-  background-color: #15161d;
-  border: 1px solid #262833;
-  border-radius: 14px;
+  return (
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider
+          theme={darkTheme({
+            accentColor: "#2D6BFF",
+            accentColorForeground: "#F5F6FA",
+            borderRadius: "medium",
+            fontStack: "system",
+          })}
+        >
+          {mounted && children}
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
 }
