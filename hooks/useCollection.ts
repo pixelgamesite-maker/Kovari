@@ -1,8 +1,10 @@
 "use client";
 
-import { useReadContract, useWriteContract, useAccount } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { COLLECTION_ABI, FACTORY_ABI, FACTORY_ADDRESS } from '@/lib/contracts';
 import { type Address } from 'viem';
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 export function useCollectionInfo(address: Address) {
   const { data: name } = useReadContract({ address, abi: COLLECTION_ABI, functionName: 'name' });
@@ -22,31 +24,65 @@ export function useCollectionInfo(address: Address) {
   };
 }
 
+// phaseId of -1 is used as a "no phase selected yet" sentinel by callers.
+// Guard against it here with `enabled` rather than letting BigInt(-1) reach
+// a uint256 contract arg, which viem will throw on at encoding time.
 export function usePhase(collection: Address, phaseId: number) {
+  const { address } = useAccount();
+  const isValid = phaseId >= 0;
+  const safePhaseId = BigInt(Math.max(phaseId, 0));
+
   const { data: phase } = useReadContract({
     address: collection,
     abi: COLLECTION_ABI,
     functionName: 'getPhase',
-    args: [BigInt(phaseId)],
+    args: [safePhaseId],
+    query: { enabled: isValid },
   });
+
   const { data: phaseMinted } = useReadContract({
     address: collection,
     abi: COLLECTION_ABI,
     functionName: 'phaseMinted',
-    args: [BigInt(phaseId)],
+    args: [safePhaseId],
+    query: { enabled: isValid },
   });
 
-  return { phase, phaseMinted };
+  // How many of this phase the *connected wallet* has already claimed -
+  // needed to enforce/display the per-wallet limit client-side.
+  const { data: claimed } = useReadContract({
+    address: collection,
+    abi: COLLECTION_ABI,
+    functionName: 'claimed',
+    args: [safePhaseId, address ?? ZERO_ADDRESS],
+    query: { enabled: isValid && !!address },
+  });
+
+  return { phase, phaseMinted, claimed };
 }
 
 export function useTotalPhases(collection: Address) {
   return useReadContract({ address: collection, abi: COLLECTION_ABI, functionName: 'totalPhases' });
 }
 
+export function useTotalTicketPhases(collection: Address) {
+  return useReadContract({ address: collection, abi: COLLECTION_ABI, functionName: 'totalTicketPhases' });
+}
+
 export function useMint(collection: Address) {
-  const { writeContract, isPending } = useWriteContract();
-  
-  const mint = async (phaseId: number, quantity: number, proof: `0x${string}`[], value: bigint) => {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  // isPending = waiting on wallet signature/broadcast.
+  // isConfirming/isConfirmed = waiting on actual on-chain confirmation -
+  // don't tell the user "success" until isConfirmed is true, since a
+  // broadcast transaction can still revert.
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const mint = async (
+    phaseId: number,
+    quantity: number,
+    proof: `0x${string}`[],
+    value: bigint
+  ) => {
     await writeContract({
       address: collection,
       abi: COLLECTION_ABI,
@@ -56,7 +92,7 @@ export function useMint(collection: Address) {
     });
   };
 
-  return { mint, isPending };
+  return { mint, isPending, hash, isConfirming, isConfirmed };
 }
 
 export function useFactoryCollections() {
