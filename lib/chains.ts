@@ -4,4 +4,5 @@
 export const chainMeta = {
   1: { label: 'Ethereum', color: '#627EEA' },
   8453: { label: 'Base', color: '#0052FF' },
+  11155111: { label: 'Sepolia', color: '#CFA0F5' },
 } as const;
