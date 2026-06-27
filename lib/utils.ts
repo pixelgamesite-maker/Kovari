@@ -15,7 +15,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCount(n: number) {
+export function formatCount(n: number | bigint) {
   return new Intl.NumberFormat('en-US').format(n);
 }
 
