@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { useCollectionInfo, useTotalPhases, useTotalTicketPhases } from "@/hooks/useCollection";
 import { MintProgress } from "@/components/collection/MintProgress";
-import { PhaseRoadmapItem } from "@/components/collection/PhaseRoadmap";
+import { PhaseRoadmap } from "@/components/collection/PhaseRoadmap";
 import { TradingLockBadge } from "@/components/collection/TradingLockBadge";
 import { ChainBadge } from "@/components/collection/ChainBadge";
 import { shortenAddress, formatCount } from "@/lib/utils";
@@ -174,7 +174,7 @@ export default function CollectionPage() {
               <h3 className="font-semibold text-main-text">Mint Phases</h3>
               <div className="space-y-3">
                 {phaseIds.map((id) => (
-                  <PhaseRoadmapItem key={id} collection={address} phaseId={id} />
+                  <PhaseRoadmap key={id} collection={address} phaseId={id} />
                 ))}
               </div>
             </div>
