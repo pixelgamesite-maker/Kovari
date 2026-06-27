@@ -95,6 +95,21 @@ export function useMint(collection: Address) {
   return { mint, isPending, hash, isConfirming, isConfirmed };
 }
 
+export function useSetTradingLock(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const setLocked = async (locked: boolean) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: locked ? 'lockTrading' : 'unlockTrading',
+    });
+  };
+
+  return { setLocked, isPending, isConfirming, isConfirmed, hash };
+}
+
 export function useFactoryCollections() {
   const { data: total } = useReadContract({
     address: FACTORY_ADDRESS,
