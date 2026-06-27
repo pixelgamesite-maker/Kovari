@@ -10,7 +10,7 @@ import { wagmiConfig } from "@/lib/wagmi";
 // not at module scope. A module-scope client is shared across every request
 // the Next.js server handles, which can leak cached data between different
 // users' sessions under real traffic.
-export default function Providers({
+export function Providers({
   children,
   cookie,
 }: {
