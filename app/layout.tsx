@@ -3,7 +3,7 @@ import { Space_Grotesk, Manrope, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import Providers from '@/components/providers';
+import { Providers } from '@/components/providers';
 
 const display = Space_Grotesk({
   subsets: ['latin'],
