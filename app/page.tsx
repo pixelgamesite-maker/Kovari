@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useReadContract } from "wagmi";
 import { FACTORY_ABI, FACTORY_ADDRESS } from "@/lib/contracts";
 import { CollectionCard } from "@/components/collection/CollectionCard";
 import { Button } from "@/components/ui/button";
 import { Rocket, TrendingUp, Clock, CheckCircle, Loader2 } from "lucide-react";
-import { type Address } from "viem";
 
-// We'll fetch collection addresses from Factory, then each card reads its own state
 export default function HomePage() {
   const { data: totalCollections, isLoading: loadingTotal } = useReadContract({
     address: FACTORY_ADDRESS,
@@ -17,7 +15,6 @@ export default function HomePage() {
     functionName: "totalCollections",
   });
 
-  // Generate indices [0, 1, 2, ... total-1]
   const indices = totalCollections
     ? Array.from({ length: Number(totalCollections) }, (_, i) => BigInt(i))
     : [];
@@ -34,8 +31,8 @@ export default function HomePage() {
               <span className="text-gradient-blue">discover</span> NFT collections
             </h1>
             <p className="text-lg text-muted-text mb-8 leading-relaxed">
-              The premier launchpad for Ethereum and Base. Fair phases, transparent locks,
-              and creator tools built for the next generation of digital art.
+              Kovari is where creators deploy NFT collections on Ethereum and Base. Fair phases,
+              transparent trading locks, and tools built for the next generation of digital art.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/launch">
@@ -54,7 +51,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Loading state */}
       {loadingTotal && (
         <div className="py-24 text-center text-muted-text">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
@@ -62,12 +58,10 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Collection Lists */}
-      {!loadingTotal && totalCollections !== undefined && (
+      {!loadingTotal && totalCollections !== undefined && totalCollections > 0n && (
         <CollectionLists indices={indices} />
       )}
 
-      {/* Empty state */}
       {!loadingTotal && totalCollections === 0n && (
         <section className="py-24 text-center">
           <p className="text-muted-text mb-4">No collections yet.</p>
@@ -80,24 +74,7 @@ export default function HomePage() {
   );
 }
 
-// Separate component so each collection can self-load its status
 function CollectionLists({ indices }: { indices: bigint[] }) {
-  const [collections, setCollections] = useState<{ address: Address; status: "live" | "upcoming" | "ended" }[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // For now, fetch all addresses then determine status
-    // In production, Ponder indexer replaces this entirely
-    const fetchAll = async () => {
-      // This is a placeholder - you'd use multicall or Ponder here
-      // For now we just show addresses and let cards load their own data
-      setLoading(false);
-    };
-    fetchAll();
-  }, [indices]);
-
-  // Temporary: render address cards that self-load
-  // Replace with Ponder query once your indexer is live
   return (
     <>
       <LiveSection indices={indices} />
@@ -107,7 +84,6 @@ function CollectionLists({ indices }: { indices: bigint[] }) {
   );
 }
 
-// Each section uses individual CollectionCard components that read their own state
 function LiveSection({ indices }: { indices: bigint[] }) {
   return (
     <section className="py-12 border-b border-border">
@@ -166,7 +142,6 @@ function EndedSection({ indices }: { indices: bigint[] }) {
   );
 }
 
-// Reads factory address at index, then loads collection data
 function FactoryCollectionCard({ index, filter }: { index: bigint; filter: "live" | "upcoming" | "ended" }) {
   const { data: address } = useReadContract({
     address: FACTORY_ADDRESS,
@@ -177,12 +152,9 @@ function FactoryCollectionCard({ index, filter }: { index: bigint; filter: "live
 
   if (!address) return <CollectionCardSkeleton />;
 
-  // Pass the real address to CollectionCard which reads its own state
   return <CollectionCard address={address} filter={filter} />;
 }
 
 function CollectionCardSkeleton() {
-  return (
-    <div className="bg-[#15161d] border border-[#262833] rounded-xl h-[400px] animate-pulse" />
-  );
+  return <div className="rounded-xl border border-border bg-panel h-[280px] animate-pulse" />;
 }
