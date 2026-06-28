@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, Manrope, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import Header from '@/components/layout/Header';
+import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Providers } from '@/components/providers';
 
