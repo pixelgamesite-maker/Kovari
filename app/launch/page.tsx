@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useWriteContract, useAccount } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { FACTORY_ABI, FACTORY_ADDRESS } from "@/lib/contracts";
-import { useRouter } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { Rocket } from "lucide-react";
 
 export default function LaunchPage() {
-  const { address } = useAccount();
-  const router = useRouter();
+  const { address, isConnected } = useAccount();
   const { writeContract, isPending, isSuccess, data: hash } = useWriteContract();
 
   const [form, setForm] = useState({
@@ -34,29 +33,37 @@ export default function LaunchPage() {
           maxSupply: BigInt(form.maxSupply),
           placeholderURI: form.placeholderURI,
           onChainMode: false,
-          // royaltyBps is uint96 on-chain - wagmi/viem expect bigint for
-          // every integer ABI type regardless of bit width, same as maxSupply.
           royaltyBps: BigInt(form.royaltyBps),
         },
       ],
     });
   };
 
+  // Gated: nothing about the form renders until a wallet is connected -
+  // same pattern as OpenSea's drop manager and Blever's launch flow.
+  if (!isConnected) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center px-6 py-32 text-center">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-kovari-blue/10 text-kovari-blue">
+          <Rocket size={28} />
+        </div>
+        <h1 className="mb-2 text-2xl font-bold text-kovari-text">Connect your wallet</h1>
+        <p className="mb-8 text-kovari-muted">
+          You'll need a connected wallet to deploy a collection through the Kovari Factory.
+        </p>
+        <ConnectButton />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="mb-2 text-3xl font-bold">Launch Collection</h1>
+      <h1 className="mb-2 text-3xl font-bold text-kovari-text">Launch Collection</h1>
       <p className="mb-8 text-kovari-muted">Deploy a new NFT collection via the Kovari Factory.</p>
-
-      {!address && (
-        <div className="mb-6 flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4 text-sm text-yellow-400">
-          <AlertCircle size={18} />
-          Connect your wallet to create a collection.
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="mb-2 block text-sm font-medium">Collection Name</label>
+          <label className="mb-2 block text-sm font-medium text-kovari-text">Collection Name</label>
           <input
             type="text"
             required
@@ -68,7 +75,7 @@ export default function LaunchPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Symbol</label>
+          <label className="mb-2 block text-sm font-medium text-kovari-text">Symbol</label>
           <input
             type="text"
             required
@@ -80,7 +87,7 @@ export default function LaunchPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Max Supply</label>
+          <label className="mb-2 block text-sm font-medium text-kovari-text">Max Supply</label>
           <input
             type="number"
             required
@@ -93,7 +100,7 @@ export default function LaunchPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Placeholder Image URI</label>
+          <label className="mb-2 block text-sm font-medium text-kovari-text">Placeholder Image URI</label>
           <input
             type="url"
             required
@@ -106,7 +113,7 @@ export default function LaunchPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Royalty (%)</label>
+          <label className="mb-2 block text-sm font-medium text-kovari-text">Royalty (%)</label>
           <input
             type="number"
             required
@@ -124,7 +131,7 @@ export default function LaunchPage() {
 
         <button
           type="submit"
-          disabled={isPending || !address}
+          disabled={isPending}
           className="w-full rounded-lg bg-kovari-blue py-4 font-medium text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
         >
           {isPending ? "Deploying..." : "Deploy Collection"}
