@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export function Header() {
   return (
@@ -24,10 +25,7 @@ export function Header() {
           >
             Launch
           </Link>
-          {/* TODO: swap for <ConnectButton /> from @rainbow-me/rainbowkit once wagmi provider is wired in */}
-          <button className="rounded-xl bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dim">
-            Connect wallet
-          </button>
+          <ConnectButton showBalance={false} />
         </div>
       </div>
     </header>
