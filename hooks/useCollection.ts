@@ -1,8 +1,17 @@
 "use client";
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { useEffect, useState } from 'react';
+import {
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+} from 'wagmi';
 import { COLLECTION_ABI, FACTORY_ABI, FACTORY_ADDRESS } from '@/lib/contracts';
-import { type Address } from 'viem';
+import { decodeContractURI } from '@/lib/contract-metadata';
+import { getAllCollectionIds, getCollectionIdsByCreator, getMintedCollectionIds } from '@/lib/ponder';
+import { type Address, parseEventLogs, zeroHash } from 'viem';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
@@ -118,4 +127,360 @@ export function useFactoryCollections() {
   });
 
   return { totalCollections: total };
+}
+
+// Deploys a new collection and decodes the CollectionCreated event from the
+// receipt to get the new collection's address - this is what lets the
+// launch page redirect straight to /dashboard/{newAddress} once the
+// transaction confirms, instead of leaving the creator stranded on the form.
+export function useCreateCollection() {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { data: receipt, isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash });
+
+  let newCollectionAddress: Address | undefined;
+  if (receipt) {
+    const logs = parseEventLogs({
+      abi: FACTORY_ABI,
+      eventName: 'CollectionCreated',
+      logs: receipt.logs,
+    });
+    newCollectionAddress = logs[0]?.args.collection as Address | undefined;
+  }
+
+  const createCollection = async (params: {
+    name: string;
+    symbol: string;
+    maxSupply: bigint;
+    placeholderURI: string;
+    royaltyBps: bigint;
+  }) => {
+    await writeContract({
+      address: FACTORY_ADDRESS,
+      abi: FACTORY_ABI,
+      functionName: 'createCollection',
+      args: [{ ...params, onChainMode: false }],
+    });
+  };
+
+  return { createCollection, isPending, isConfirming, isConfirmed, hash, newCollectionAddress };
+}
+
+// Finds every collection the connected wallet owns or has minted from.
+// Tries the Ponder indexer first (one fast indexed query); if that's
+// unreachable (not deployed, wrong URL, etc.) falls back automatically to
+// the on-chain scan below - slower, but has no external dependency.
+export function useMyCollections() {
+  const { address } = useAccount();
+  const [indexedAddresses, setIndexedAddresses] = useState<Address[] | null>(null);
+  const [indexerFailed, setIndexerFailed] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+
+    Promise.all([getCollectionIdsByCreator(address), getMintedCollectionIds(address)])
+      .then(([created, minted]) => {
+        if (cancelled) return;
+        const combined = Array.from(new Set([...created, ...minted])) as Address[];
+        setIndexedAddresses(combined);
+      })
+      .catch(() => {
+        if (!cancelled) setIndexerFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  // --- On-chain fallback, only runs if the indexer attempt failed ---
+  const { data: total, isLoading: loadingTotal } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: FACTORY_ABI,
+    functionName: 'totalCollections',
+    query: { enabled: indexerFailed },
+  });
+
+  const indices = indexerFailed && total ? Array.from({ length: Number(total) }, (_, i) => BigInt(i)) : [];
+
+  const { data: addressResults, isLoading: loadingAddresses } = useReadContracts({
+    contracts: indices.map((i) => ({
+      address: FACTORY_ADDRESS,
+      abi: FACTORY_ABI,
+      functionName: 'allCollections',
+      args: [i],
+    })),
+    query: { enabled: indexerFailed && indices.length > 0 },
+  });
+
+  const fallbackCollectionAddresses = (addressResults ?? [])
+    .map((r) => (r.status === 'success' ? (r.result as Address) : null))
+    .filter((a): a is Address => !!a);
+
+  const { data: ownerResults, isLoading: loadingOwners } = useReadContracts({
+    contracts: fallbackCollectionAddresses.map((addr) => ({
+      address: addr,
+      abi: COLLECTION_ABI,
+      functionName: 'owner',
+    })),
+    query: { enabled: indexerFailed && fallbackCollectionAddresses.length > 0 && !!address },
+  });
+
+  const fallbackMyCollections = fallbackCollectionAddresses.filter((_, i) => {
+    const ownerResult = ownerResults?.[i];
+    if (ownerResult?.status !== 'success' || !address) return false;
+    return (ownerResult.result as Address).toLowerCase() === address.toLowerCase();
+  });
+
+  // Indexer succeeded - use it.
+  if (indexedAddresses) {
+    return { myCollections: indexedAddresses, isLoading: false, source: 'indexer' as const };
+  }
+  // Indexer failed - use the on-chain fallback.
+  if (indexerFailed) {
+    return {
+      myCollections: fallbackMyCollections,
+      isLoading: loadingTotal || (indices.length > 0 && (loadingAddresses || loadingOwners)),
+      source: 'onchain' as const,
+    };
+  }
+  // Still waiting to find out which path we're on.
+  return { myCollections: [], isLoading: true, source: 'pending' as const };
+}
+
+export function useIsAdmin() {
+  const { address } = useAccount();
+  const { data: factoryOwner } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: FACTORY_ABI,
+    functionName: 'owner',
+  });
+
+  const isAdmin =
+    !!address && !!factoryOwner &&
+    address.toLowerCase() === (factoryOwner as Address).toLowerCase();
+
+  return { isAdmin, factoryOwner };
+}
+
+export function useTransferOwnership(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const transferOwnership = async (newOwner: Address) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'transferOwnership',
+      args: [newOwner],
+    });
+  };
+
+  return { transferOwnership, isPending, isConfirming, isConfirmed, hash };
+}
+
+export function useAddPhase(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const addPhase = async (params: {
+    name: string;
+    startTime: bigint;
+    endTime: bigint; // 0n = no end
+    price: bigint; // wei
+    maxPerWallet: number; // 0 = unlimited
+    maxSupply: number; // 0 = no phase cap
+    merkleRoot?: `0x${string}`; // omit or zeroHash for a public phase
+    active: boolean;
+  }) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'addPhase',
+      args: [
+        params.name,
+        params.startTime,
+        params.endTime,
+        params.price,
+        params.maxPerWallet,
+        params.maxSupply,
+        params.merkleRoot ?? zeroHash,
+        params.active,
+      ],
+    });
+  };
+
+  return { addPhase, isPending, isConfirming, isConfirmed, hash };
+}
+
+// Reads contractURI() and decodes it - the only way to see the collection's
+// current description/image/banner/externalLink, since the contract only
+// exposes setters for these.
+export function useContractMetadata(collection: Address) {
+  const { data: contractURI, isLoading } = useReadContract({
+    address: collection,
+    abi: COLLECTION_ABI,
+    functionName: 'contractURI',
+  });
+
+  const metadata = decodeContractURI(contractURI as string | undefined);
+
+  return { metadata, isLoading };
+}
+
+// Bundles description + image + banner + externalLink into a single
+// transaction via setCollectionMetadata, rather than one transaction per
+// field - one save action in the UI, one wallet signature.
+export function useUpdateCollectionMetadata(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const updateMetadata = async (params: {
+    description: string;
+    image: string;
+    banner: string;
+    externalLink: string;
+  }) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'setCollectionMetadata',
+      args: [params.description, params.image, params.banner, params.externalLink],
+    });
+  };
+
+  return { updateMetadata, isPending, isConfirming, isConfirmed, hash };
+}
+
+// Full phase edit - same shape as addPhase but targets an existing phaseId.
+// Used by PhaseBuilder when mode="edit".
+export function useSetPhase(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const setPhase = async (
+    phaseId: number,
+    params: {
+      name: string;
+      startTime: bigint;
+      endTime: bigint;
+      price: bigint;
+      maxPerWallet: number;
+      maxSupply: number;
+      merkleRoot?: `0x${string}`;
+      active: boolean;
+    }
+  ) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'setPhase',
+      args: [
+        BigInt(phaseId),
+        params.name,
+        params.startTime,
+        params.endTime,
+        params.price,
+        params.maxPerWallet,
+        params.maxSupply,
+        params.merkleRoot ?? zeroHash,
+        params.active,
+      ],
+    });
+  };
+
+  return { setPhase, isPending, isConfirming, isConfirmed, hash };
+}
+
+// Quick toggle - just active/inactive, no need to resend the rest of the
+// phase's fields for this single change.
+export function useSetPhaseActive(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const setPhaseActive = async (phaseId: number, active: boolean) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'setPhaseActive',
+      args: [BigInt(phaseId), active],
+    });
+  };
+
+  return { setPhaseActive, isPending, isConfirming, isConfirmed, hash };
+}
+
+// Quick price-only update.
+export function useSetPhasePrice(collection: Address) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const setPhasePrice = async (phaseId: number, price: bigint) => {
+    await writeContract({
+      address: collection,
+      abi: COLLECTION_ABI,
+      functionName: 'setPhasePrice',
+      args: [BigInt(phaseId), price],
+    });
+  };
+
+  return { setPhasePrice, isPending, isConfirming, isConfirmed, hash };
+}
+
+// Powers the home page's collection list. Same indexer-first,
+// on-chain-fallback pattern as useMyCollections, just without the
+// owner-filtering step.
+export function useDiscoverCollections() {
+  const [indexedAddresses, setIndexedAddresses] = useState<Address[] | null>(null);
+  const [indexerFailed, setIndexerFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAllCollectionIds()
+      .then((ids) => {
+        if (!cancelled) setIndexedAddresses(ids as Address[]);
+      })
+      .catch(() => {
+        if (!cancelled) setIndexerFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { data: total, isLoading: loadingTotal } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: FACTORY_ABI,
+    functionName: 'totalCollections',
+    query: { enabled: indexerFailed },
+  });
+
+  const indices = indexerFailed && total ? Array.from({ length: Number(total) }, (_, i) => BigInt(i)) : [];
+
+  const { data: addressResults, isLoading: loadingAddresses } = useReadContracts({
+    contracts: indices.map((i) => ({
+      address: FACTORY_ADDRESS,
+      abi: FACTORY_ABI,
+      functionName: 'allCollections',
+      args: [i],
+    })),
+    query: { enabled: indexerFailed && indices.length > 0 },
+  });
+
+  const fallbackAddresses = (addressResults ?? [])
+    .map((r) => (r.status === 'success' ? (r.result as Address) : null))
+    .filter((a): a is Address => !!a);
+
+  if (indexedAddresses) {
+    return { addresses: indexedAddresses, isLoading: false, source: 'indexer' as const };
+  }
+  if (indexerFailed) {
+    return {
+      addresses: fallbackAddresses,
+      isLoading: loadingTotal || (indices.length > 0 && loadingAddresses),
+      source: 'onchain' as const,
+    };
+  }
+  return { addresses: [], isLoading: true, source: 'pending' as const };
 }
