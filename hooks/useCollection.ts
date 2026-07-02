@@ -228,7 +228,7 @@ export function useMyCollections() {
   });
 
   const fallbackMyCollections = fallbackCollectionAddresses.filter((_, i) => {
-    const ownerResult = ownerResults?.[i];
+    const ownerResult = (ownerResults as any)?.[i];
     if (ownerResult?.status !== 'success' || !address) return false;
     return (ownerResult.result as Address).toLowerCase() === address.toLowerCase();
   });
