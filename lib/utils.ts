@@ -19,6 +19,14 @@ export function formatCount(n: number | bigint) {
   return new Intl.NumberFormat('en-US').format(n);
 }
 
+export function unixToDatetimeLocal(seconds: bigint): string {
+  if (seconds === 0n) return '';
+  const date = new Date(Number(seconds) * 1000);
+  // datetime-local inputs want local time, no timezone suffix
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function shortenAddress(address: string, chars = 4) {
   if (!address) return '';
   return `${address.slice(0, 2 + chars)}…${address.slice(-chars)}`;
