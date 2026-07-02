@@ -2,13 +2,9 @@ import { PLATFORM_API_BASE_URL } from './contracts';
 
 // Thin client for the contract team's Merkle + metadata backend.
 //
-// IMPORTANT: the brief gives endpoint names and a high-level description,
-// but not exact request/response JSON shapes. Everything below is a
-// reasonable guess at that shape - confirm the actual payload format with
-// the contract dev (or just hit the endpoint directly and check) before
-// relying on this in production. Wrong field names here will fail
-// silently differently than a missing export does - it'll just send a
-// malformed request.
+// Merkle endpoints below are still a best-guess at the exact request/response
+// shape (confirm with the dev or test directly before relying on them).
+// The metadata upload functions further down ARE confirmed - see comment there.
 
 export async function buildMerkleRoot(addresses: string[]): Promise<{ root: `0x${string}` }> {
   const res = await fetch(`${PLATFORM_API_BASE_URL}/merkle/build`, {
@@ -35,11 +31,38 @@ export async function getMerkleProof(params: {
   return res.json();
 }
 
-export async function uploadMetadata(formData: FormData): Promise<{ baseURI: string }> {
+// Confirmed with the contract dev (2026-06-28):
+// - Placeholder image: POST /metadata/placeholder, field "image" (single file)
+// - Reveal upload: POST /metadata/upload, fields "images" (multiple files) +
+//   "csv" (one file) - individual files in one multipart request, NOT a zip.
+
+export async function uploadPlaceholderImage(image: File): Promise<{ placeholderURI: string }> {
+  const formData = new FormData();
+  formData.append('image', image);
+
+  const res = await fetch(`${PLATFORM_API_BASE_URL}/metadata/placeholder`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Placeholder upload failed: ${res.status}`);
+  return res.json();
+}
+
+// Same endpoint, confirmed generic (2026-06-29) - reused for logo/banner
+// uploads. Different name at call sites for clarity; identical request.
+export async function uploadImage(image: File): Promise<{ placeholderURI: string }> {
+  return uploadPlaceholderImage(image);
+}
+
+export async function uploadRevealMetadata(images: File[], csv: File): Promise<{ baseURI: string }> {
+  const formData = new FormData();
+  images.forEach((image) => formData.append('images', image));
+  formData.append('csv', csv);
+
   const res = await fetch(`${PLATFORM_API_BASE_URL}/metadata/upload`, {
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
+  if (!res.ok) throw new Error(`Reveal upload failed: ${res.status}`);
   return res.json();
 }
