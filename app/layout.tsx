@@ -25,7 +25,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Kovari',
+  title: 'Mintrs',
   description: 'Launch and mint NFT collections, phase by phase.',
 };
 
