@@ -18,9 +18,10 @@ import { PhaseBuilder } from "@/components/dashboard/PhaseBuilder";
 import { CollectionInfoEditor } from "@/components/dashboard/CollectionInfoEditor";
 import { AllowlistManager } from "@/components/dashboard/AllowlistManager";
 import { SocialsEditor } from "@/components/dashboard/SocialsEditor";
+import { RevealPanel } from "@/components/dashboard/RevealPanel";
 import {
   TrendingUp, Layers, Lock, Unlock, AlertCircle,
-  Loader2, Crown, Users, Globe,
+  Loader2, Crown, Users, Globe, Eye,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -214,19 +215,16 @@ export default function DashboardPage() {
             {/* Admin: Reveal */}
             {isAdmin && (
               <div className="rounded-xl border border-border bg-panel p-6">
-                <h2 className="text-sm font-semibold text-main-text mb-2 flex items-center gap-2">
-                  <Crown size={14} className="text-accent-blue" /> Reveal Collection
+                <h2 className="text-sm font-semibold text-main-text mb-4 flex items-center gap-2">
+                  <Eye size={14} className="text-accent-blue" /> Reveal Collection
                 </h2>
-                <p className="text-sm text-muted-text">
-                  Upload all token images + traits CSV → get baseURI → call reveal(). Not built yet.
-                </p>
+                <RevealPanel collection={address} />
               </div>
             )}
 
             {/* Admin: Transfer ownership */}
-            {isAdmin && (
-              <TransferOwnershipPanel collection={address} />
-            )}
+            {isAdmin && <TransferOwnershipPanel collection={address} />}
+
           </div>
 
           {/* Sidebar */}
@@ -279,7 +277,7 @@ export default function DashboardPage() {
               {lockConfirmed && <p className="mt-2 text-xs text-green-400">Trading status updated.</p>}
             </div>
 
-            {/* Contract info — updated to mainnet */}
+            {/* Contract info */}
             <div className="rounded-xl border border-border bg-panel p-5">
               <h3 className="text-sm font-semibold text-main-text mb-3">Contract</h3>
               <a
