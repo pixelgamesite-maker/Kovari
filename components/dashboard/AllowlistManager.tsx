@@ -74,7 +74,7 @@ function AllowlistEditor({ collection, phaseId }: { collection: Address; phaseId
     }
     try {
       setIsBuilding(true);
-      const { root } = await buildMerkleRoot(addresses);
+      const { root } = await buildMerkleRoot(addresses, collection, phaseId);
       setIsBuilding(false);
       await writeContract({
         address: collection,
