@@ -6,11 +6,15 @@ import { PLATFORM_API_BASE_URL } from './contracts';
 // shape (confirm with the dev or test directly before relying on them).
 // The metadata upload functions further down ARE confirmed - see comment there.
 
-export async function buildMerkleRoot(addresses: string[]): Promise<{ root: `0x${string}` }> {
+export async function buildMerkleRoot(
+  addresses: string[],
+  collectionAddress: string,
+  phaseId: number
+): Promise<{ root: `0x${string}` }> {
   const res = await fetch(`${PLATFORM_API_BASE_URL}/merkle/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ addresses }),
+    body: JSON.stringify({ collectionAddress, phaseId, addresses }),
   });
   if (!res.ok) throw new Error(`Merkle build failed: ${res.status}`);
   return res.json();
