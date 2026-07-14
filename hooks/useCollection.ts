@@ -238,16 +238,19 @@ export function useMyCollections() {
   return { myCollections: [], isLoading: true, source: 'pending' as const };
 }
 
+// Admin wallets hardcoded while RPC proxy issue is being resolved.
+// Revert to contract-based check once confirmed working.
+const ADMIN_WALLETS = [
+  '0xC0058301b89d8AaF5224981BB42e2Ae2b1EdBac9',
+  '0x9DaeC3674f99cE1bBCe1c90C20C5A78f8F256657',
+].map(a => a.toLowerCase());
+
 export function useIsAdmin() {
   const { address } = useAccount();
-  const { data: factoryOwner, isLoading: adminLoading } = useReadContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: 'owner',
-  });
 
-  const isAdmin = !!address && !!factoryOwner &&
-    address.toLowerCase() === (factoryOwner as Address).toLowerCase();
+  const isAdmin = !!address && ADMIN_WALLETS.includes(address.toLowerCase());
+  const factoryOwner = ADMIN_WALLETS[0] as Address;
+  const adminLoading = false;
 
   return { isAdmin, isLoading: adminLoading, factoryOwner };
 }
