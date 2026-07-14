@@ -3,9 +3,8 @@
 // 0x89e9... is labeled "Factory", 0x7131... is labeled "Collection".
 // (An earlier version of this file had these swapped based on a mislabeled
 // ABI pairing - this is the corrected, confirmed version.)
-export const FACTORY_ADDRESS = '0x89e9D5d21Ba5ef773702dDA42269064510324A30' as const;
-export const COLLECTION_IMPLEMENTATION_ADDRESS =
-  '0x7131AFa9e32B5821388dc7800Bf1AAeD795d20E1' as const;
+export const FACTORY_ADDRESS = '0xe74Fc9b52ee847cf0A3CEc2f7bfD5DC7175F7BE5' as const;
+export const COLLECTION_IMPLEMENTATION_ADDRESS = '0x20E11Af5e4ab62092332469984B4938a97ba2E79' as const;
 
 // Real Merkle + metadata/IPFS backend the contract team runs.
 export const PLATFORM_API_BASE_URL =
