@@ -5,7 +5,7 @@ import { type Address, isAddress } from "viem";
 import { usePhase } from "@/hooks/useCollection";
 import { buildMerkleRoot } from "@/lib/platform-api";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
 import { COLLECTION_ABI } from "@/lib/contracts";
 
 interface Props {
@@ -51,6 +51,8 @@ function PhaseTab({ collection, phaseId, isSelected, onSelect }: {
 
 function AllowlistEditor({ collection, phaseId }: { collection: Address; phaseId: number }) {
   const { phase } = usePhase(collection, phaseId);
+  const chainId = useChainId();
+  const chain = chainId === 8453 ? "base" : "mainnet";
   const [addressText, setAddressText] = useState("");
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ function AllowlistEditor({ collection, phaseId }: { collection: Address; phaseId
     }
     try {
       setIsBuilding(true);
-      const { root } = await buildMerkleRoot(addresses, collection, phaseId);
+      const { root } = await buildMerkleRoot(addresses, collection, phaseId, chain as "mainnet" | "base");
       setIsBuilding(false);
       await writeContract({
         address: collection,
