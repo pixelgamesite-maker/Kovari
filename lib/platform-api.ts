@@ -3,12 +3,13 @@ import { PLATFORM_API_BASE_URL } from './contracts';
 export async function buildMerkleRoot(
   addresses: string[],
   collectionAddress: string,
-  phaseId: number
+  phaseId: number,
+  chain: 'mainnet' | 'base' = 'mainnet'
 ): Promise<{ root: `0x${string}` }> {
   const res = await fetch(`${PLATFORM_API_BASE_URL}/merkle/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ collectionAddress, phaseId, addresses }),
+    body: JSON.stringify({ collectionAddress, phaseId, addresses, chain }),
   });
   if (!res.ok) throw new Error(`Merkle build failed: ${res.status}`);
   return res.json();
