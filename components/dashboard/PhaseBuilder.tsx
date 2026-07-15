@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { type Address, isAddress, zeroHash } from "viem";
 import { useAddPhase, useSetPhase, useTotalPhases } from "@/hooks/useCollection";
+import { useChainId } from "wagmi";
 import { buildMerkleRoot } from "@/lib/platform-api";
 import { parseEther, formatEther, unixToDatetimeLocal } from "@/lib/utils";
 import { Loader2, Users, Infinity as InfinityIcon, AlertTriangle } from "lucide-react";
@@ -31,6 +32,8 @@ export function PhaseBuilder({ collection, onDone, mode = "create", phaseId, exi
   const { setPhase, isPending: isSetPending, isConfirming: isSetConfirming } = useSetPhase(collection);
 
   const { data: totalPhases } = useTotalPhases(collection);
+  const chainId = useChainId();
+  const chain = chainId === 8453 ? "base" : "mainnet";
   const isEdit = mode === "edit";
   const wasAllowlist = existingPhase ? existingPhase.merkleRoot !== zeroHash : false;
 
@@ -90,7 +93,7 @@ export function PhaseBuilder({ collection, onDone, mode = "create", phaseId, exi
           }
           setIsBuildingRoot(true);
           const effectivePhaseId = isEdit && phaseId !== undefined ? phaseId : Number(totalPhases ?? 0);
-          const { root } = await buildMerkleRoot(addresses, collection, effectivePhaseId);
+          const { root } = await buildMerkleRoot(addresses, collection, effectivePhaseId, chain as "mainnet" | "base");
           merkleRoot = root;
           setIsBuildingRoot(false);
         } else if (isEdit && wasAllowlist && existingPhase) {
