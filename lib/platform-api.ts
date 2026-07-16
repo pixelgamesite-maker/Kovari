@@ -1,5 +1,14 @@
 import { PLATFORM_API_BASE_URL } from './contracts';
 
+// Custom error class so callers can distinguish "not on allowlist" (404)
+// from real API/network failures without showing a misleading error message.
+export class MerkleProofError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'MerkleProofError';
+  }
+}
+
 export async function buildMerkleRoot(
   addresses: string[],
   collectionAddress: string,
@@ -26,7 +35,9 @@ export async function getMerkleProof(params: {
     address: params.address,
   });
   const res = await fetch(`${PLATFORM_API_BASE_URL}/merkle/proof?${query.toString()}`);
-  if (!res.ok) throw new Error(`Merkle proof fetch failed: ${res.status}`);
+  if (!res.ok) {
+    throw new MerkleProofError(res.status, `Merkle proof fetch failed: ${res.status}`);
+  }
   return res.json();
 }
 
