@@ -20,10 +20,10 @@ export function decodeContractURI(uri: string | undefined): ContractMetadata | n
     return {
       name: json.name,
       description: json.description,
-      // Apply toGateway here so every consumer gets a renderable URL,
-      // not a raw ipfs:// string that browsers can't display.
       image: toGateway(json.image),
-      banner: toGateway(json.banner_image_url),
+      // Support both key names — contract uses 'banner' in setCollectionMetadata
+      // but OpenSea-style metadata uses 'banner_image_url'.
+      banner: toGateway(json.banner ?? json.banner_image_url),
       externalLink: json.external_link,
       sellerFeeBasisPoints: json.seller_fee_basis_points,
       feeRecipient: json.fee_recipient,
