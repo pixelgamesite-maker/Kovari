@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { useMint, usePhase, useTotalPhases, useCollectionInfo } from "@/hooks/useCollection";
-import { getMerkleProof } from "@/lib/platform-api";
+import { useMint, usePhase, useTotalPhases, useCollectionInfo, useIsAdmin } from "@/hooks/useCollection";
+import { getMerkleProof, MerkleProofError } from "@/lib/platform-api";
 import { formatEther, isPhaseActive, toGateway } from "@/lib/utils";
 import { type Address, zeroHash } from "viem";
-import { Minus, Plus, AlertTriangle, Loader2, CheckCircle } from "lucide-react";
+import { Minus, Plus, AlertTriangle, Loader2, CheckCircle, ShieldX } from "lucide-react";
 import { MintSuccessModal } from "@/components/collection/MintSuccessModal";
+
+type Eligibility = 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error';
 
 interface Props {
   collection: Address;
@@ -16,6 +18,7 @@ interface Props {
 
 export function MintProgress({ collection, platformFlatFee }: Props) {
   const { address } = useAccount();
+  const { isAdmin } = useIsAdmin();
   const { data: totalPhases } = useTotalPhases(collection);
   const { name, placeholderURI } = useCollectionInfo(collection);
   const [quantity, setQuantity] = useState(1);
@@ -24,10 +27,11 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [mintedQuantity, setMintedQuantity] = useState(1);
+  const [eligibility, setEligibility] = useState<Eligibility>('idle');
+  const [cachedProof, setCachedProof] = useState<`0x${string}`[]>([]);
 
   const { mint, isPending, hash, isConfirming, isConfirmed } = useMint(collection);
 
-  // Show success modal when mint confirms
   useMemo(() => {
     if (isConfirmed) {
       setMintedQuantity(quantity);
@@ -43,6 +47,35 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
   const effectivePhaseId = selectedPhaseId ?? (phaseIds.length > 0 ? phaseIds[0] : null);
   const { phase, phaseMinted, claimed } = usePhase(collection, effectivePhaseId ?? -1);
 
+  // Check eligibility whenever wallet or phase changes
+  useEffect(() => {
+    if (!address || effectivePhaseId === null || !phase) return;
+
+    const isAllowlist = phase.merkleRoot !== zeroHash;
+
+    // Admin wallet is always eligible
+    if (!isAllowlist || isAdmin) {
+      setEligibility('eligible');
+      setCachedProof([]);
+      return;
+    }
+
+    setEligibility('checking');
+    getMerkleProof({ collection, phaseId: effectivePhaseId, address })
+      .then((res) => {
+        setCachedProof(res.proof);
+        setEligibility('eligible');
+      })
+      .catch((err) => {
+        if (err instanceof MerkleProofError && (err.status === 404 || err.status === 400)) {
+          setEligibility('ineligible');
+        } else {
+          setEligibility('error');
+        }
+        setCachedProof([]);
+      });
+  }, [address, effectivePhaseId, phase, collection, isAdmin]);
+
   const handleMint = useCallback(async () => {
     if (!address || effectivePhaseId === null || !phase || platformFlatFee === undefined) return;
 
@@ -56,7 +89,7 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
       if (phase.maxPerWallet > 0n) {
         const alreadyClaimed = claimed ?? 0n;
         if (alreadyClaimed + BigInt(quantity) > BigInt(phase.maxPerWallet)) {
-          throw new Error(`Wallet limit: ${phase.maxPerWallet} per wallet. You've claimed ${alreadyClaimed}.`);
+          throw new Error(`Wallet limit reached. You've minted ${alreadyClaimed} in this phase.`);
         }
       }
 
@@ -64,12 +97,17 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
         throw new Error("Not enough supply remaining in this phase");
       }
 
-      let proof: `0x${string}`[] = [];
       const isAllowlist = phase.merkleRoot !== zeroHash;
+      let proof: `0x${string}`[] = [];
 
-      if (isAllowlist) {
-        const proofRes = await getMerkleProof({ collection, phaseId: effectivePhaseId, address });
-        proof = proofRes.proof;
+      if (isAllowlist && !isAdmin) {
+        // Use cached proof from eligibility check
+        if (cachedProof.length > 0) {
+          proof = cachedProof;
+        } else {
+          const proofRes = await getMerkleProof({ collection, phaseId: effectivePhaseId, address });
+          proof = proofRes.proof;
+        }
       }
 
       const unitPrice = phase.price + platformFlatFee;
@@ -81,7 +119,7 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
       setIsFetchingProof(false);
       setError(err.message || "Mint failed");
     }
-  }, [address, effectivePhaseId, phase, platformFlatFee, quantity, claimed, phaseMinted, collection, mint]);
+  }, [address, effectivePhaseId, phase, platformFlatFee, quantity, claimed, phaseMinted, collection, mint, isAdmin, cachedProof]);
 
   if (!address) {
     return (
@@ -123,6 +161,10 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
     ? (claimed ?? 0n) >= BigInt(phase.maxPerWallet) ? 0n : BigInt(phase.maxPerWallet) - (claimed ?? 0n)
     : null;
 
+  const canMint = status.status === 'live' &&
+    eligibility === 'eligible' &&
+    !isPending && !isConfirming && !isFetchingProof;
+
   return (
     <>
       <MintSuccessModal
@@ -146,6 +188,7 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
           </span>
         </div>
 
+        {/* Phase selector */}
         {phaseIds.length > 1 && (
           <div className="mb-4">
             <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">Phase</label>
@@ -156,10 +199,31 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
                   collection={collection}
                   phaseId={id}
                   isSelected={id === effectivePhaseId}
-                  onSelect={() => { setSelectedPhaseId(id); setError(null); }}
+                  onSelect={() => {
+                    setSelectedPhaseId(id);
+                    setError(null);
+                    setEligibility('idle');
+                  }}
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Eligibility status */}
+        {isAllowlist && (
+          <div className={`mb-4 rounded-lg p-3 flex items-center gap-2 text-sm ${
+            eligibility === 'checking' ? 'bg-muted-text/5 border border-border' :
+            eligibility === 'eligible' ? 'bg-green-500/5 border border-green-500/20' :
+            eligibility === 'ineligible' ? 'bg-red-500/5 border border-red-500/20' :
+            eligibility === 'error' ? 'bg-yellow-500/5 border border-yellow-500/20' :
+            'bg-accent-blue/5 border border-accent-blue/20'
+          }`}>
+            {eligibility === 'checking' && <><Loader2 size={16} className="animate-spin text-muted-text" /><span className="text-muted-text">Checking eligibility...</span></>}
+            {eligibility === 'eligible' && <><CheckCircle size={16} className="text-green-400" /><span className="text-green-400">Eligible to mint</span></>}
+            {eligibility === 'ineligible' && <><ShieldX size={16} className="text-red-400" /><span className="text-red-400">Your wallet is not on the allowlist for this phase</span></>}
+            {eligibility === 'error' && <><AlertTriangle size={16} className="text-yellow-400" /><span className="text-yellow-400">Couldn't check eligibility — try refreshing</span></>}
+            {eligibility === 'idle' && <><AlertTriangle size={16} className="text-accent-blue" /><span className="text-accent-blue">Allowlist phase</span></>}
           </div>
         )}
 
@@ -182,19 +246,12 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
           </div>
         </div>
 
-        {isAllowlist && (
-          <div className="mb-4 rounded-lg bg-accent-blue/5 border border-accent-blue/20 p-3 flex items-center gap-2 text-sm">
-            <AlertTriangle size={16} className="text-accent-blue shrink-0" />
-            <span className="text-accent-blue">Allowlist phase — proof required</span>
-          </div>
-        )}
-
         <div className="mb-4">
           <label className="mb-2 block text-xs font-medium text-muted-text uppercase tracking-wider">Quantity</label>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              disabled={quantity <= 1 || isPending || isConfirming || isFetchingProof}
+              disabled={quantity <= 1 || !canMint}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background hover:border-accent-blue/50 disabled:opacity-50 transition-colors"
             >
               <Minus size={16} />
@@ -205,7 +262,7 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
                 const max = walletRemaining !== null ? Number(walletRemaining) : 10;
                 setQuantity(Math.min(max, quantity + 1));
               }}
-              disabled={isPending || isConfirming || isFetchingProof || (walletRemaining !== null && quantity >= Number(walletRemaining))}
+              disabled={!canMint || (walletRemaining !== null && quantity >= Number(walletRemaining))}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background hover:border-accent-blue/50 disabled:opacity-50 transition-colors"
             >
               <Plus size={16} />
@@ -227,14 +284,16 @@ export function MintProgress({ collection, platformFlatFee }: Props) {
 
         <button
           onClick={handleMint}
-          disabled={status.status !== "live" || isPending || isConfirming || isFetchingProof}
+          disabled={!canMint}
           className="w-full rounded-lg bg-accent-blue py-3.5 font-medium text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
           {isFetchingProof ? <><Loader2 size={18} className="animate-spin" /> Fetching proof...</>
             : isPending ? <><Loader2 size={18} className="animate-spin" /> Confirm in wallet...</>
             : isConfirming ? <><Loader2 size={18} className="animate-spin" /> Waiting for confirmation...</>
-            : status.status !== "live" ? status.label
-            : "Mint"}
+            : eligibility === 'ineligible' ? 'Not on allowlist'
+            : eligibility === 'checking' ? 'Checking eligibility...'
+            : status.status !== 'live' ? status.label
+            : 'Mint'}
         </button>
       </div>
     </>
