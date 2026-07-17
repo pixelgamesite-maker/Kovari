@@ -18,10 +18,12 @@ import { PhaseBuilder } from "@/components/dashboard/PhaseBuilder";
 import { CollectionInfoEditor } from "@/components/dashboard/CollectionInfoEditor";
 import { AllowlistManager } from "@/components/dashboard/AllowlistManager";
 import { SocialsEditor } from "@/components/dashboard/SocialsEditor";
+import { AdminTrustEditor } from "@/components/dashboard/AdminTrustEditor";
 import { RevealPanel } from "@/components/dashboard/RevealPanel";
+import { DashboardNav, type DashboardSection } from "@/components/dashboard/DashboardNav";
 import {
   TrendingUp, Layers, Lock, Unlock, AlertCircle,
-  Loader2, Crown, Users, Globe, Eye,
+  Loader2, Crown, Users,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -29,6 +31,7 @@ export default function DashboardPage() {
   const address = slug as Address;
   const { address: userAddress } = useAccount();
   const { isAdmin } = useIsAdmin();
+  const [section, setSection] = useState<DashboardSection>("info");
 
   const {
     name, symbol, maxSupply, totalSupply,
@@ -42,8 +45,6 @@ export default function DashboardPage() {
   const [confirmingLockChange, setConfirmingLockChange] = useState(false);
   const [showPhaseBuilder, setShowPhaseBuilder] = useState(false);
   const [editingPhaseId, setEditingPhaseId] = useState<number | null>(null);
-  const [adminKey, setAdminKey] = useState("");
-  const [adminKeyEntered, setAdminKeyEntered] = useState(false);
 
   const isOwner = !!userAddress && !!owner &&
     userAddress.toLowerCase() === owner.toLowerCase();
@@ -56,11 +57,7 @@ export default function DashboardPage() {
   const pct = supply > 0n ? Math.round((Number(minted) / Number(supply)) * 100) : 0;
 
   if (!isAddress(address)) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-24 text-center text-red-400">
-        Invalid collection address
-      </div>
-    );
+    return <div className="mx-auto max-w-7xl px-4 py-24 text-center text-red-400">Invalid collection address</div>;
   }
 
   if (isLoading) {
@@ -82,6 +79,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
+        <div className="mb-6 h-1 w-24 rounded-full bg-accent-blue shadow-glow-blue-sm" />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -112,184 +110,165 @@ export default function DashboardPage() {
             value={isOwner ? "You" : shortenAddress(owner ?? "0x")} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        {/* Section nav + content */}
+        <div className="lg:flex lg:items-start lg:gap-8">
+          <DashboardNav active={section} onChange={setSection} isAdmin={isAdmin} />
 
-            {/* Phase Breakdown */}
-            <div className="rounded-xl border border-border bg-panel p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-main-text">Phase Breakdown</h2>
-                {isAdmin && (
-                  <button
-                    onClick={() => { setShowPhaseBuilder((s) => !s); setEditingPhaseId(null); }}
-                    className="rounded-lg border border-accent-blue/30 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
-                  >
-                    {showPhaseBuilder ? "Cancel" : "+ Add Phase"}
-                  </button>
-                )}
-              </div>
+          <div className="flex-1 min-w-0 space-y-6">
 
-              {isAdmin && showPhaseBuilder && (
-                <div className="mb-6 rounded-lg border border-border bg-background p-4">
-                  <PhaseBuilder collection={address} onDone={() => setShowPhaseBuilder(false)} />
+            {section === "info" && (
+              <div className="rounded-xl border border-border bg-panel p-6 space-y-8">
+                <div>
+                  <h2 className="text-sm font-semibold text-main-text mb-4">Collection Info</h2>
+                  <CollectionInfoEditor collection={address} />
                 </div>
-              )}
-
-              {phaseIds.length === 0 ? (
-                <p className="text-sm text-muted-text">
-                  {isAdmin ? "No phases yet. Add one to start minting." : "No phases yet. Check back soon."}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {phaseIds.map((id) => (
-                    <div key={id}>
-                      <PhaseRow
-                        collection={address}
-                        phaseId={id}
-                        isAdmin={isAdmin}
-                        isEditing={editingPhaseId === id}
-                        onEditToggle={() => {
-                          setEditingPhaseId((cur) => (cur === id ? null : id));
-                          setShowPhaseBuilder(false);
-                        }}
-                      />
-                      {editingPhaseId === id && isAdmin && (
-                        <EditPhasePanel collection={address} phaseId={id} onDone={() => setEditingPhaseId(null)} />
-                      )}
-                    </div>
-                  ))}
+                <div className="border-t border-border pt-6">
+                  <h2 className="text-sm font-semibold text-main-text mb-4">Socials</h2>
+                  <SocialsEditor collection={address} />
                 </div>
-              )}
-            </div>
-
-            {/* Allowlist management */}
-            {phaseIds.length > 0 && (
-              <div className="rounded-xl border border-border bg-panel p-6">
-                <h2 className="text-sm font-semibold text-main-text mb-4">Manage Allowlists</h2>
-                <AllowlistManager collection={address} phaseIds={phaseIds} />
               </div>
             )}
 
-            {/* Admin: Collection Info */}
-            {isAdmin && (
-              <div className="rounded-xl border border-border bg-panel p-6">
-                <h2 className="text-sm font-semibold text-main-text mb-4 flex items-center gap-2">
-                  <Crown size={14} className="text-accent-blue" /> Collection Info
-                </h2>
-                <CollectionInfoEditor collection={address} />
-              </div>
-            )}
-
-            {/* Admin: Socials & Verification */}
-            {isAdmin && (
-              <div className="rounded-xl border border-border bg-panel p-6">
-                <h2 className="text-sm font-semibold text-main-text mb-4 flex items-center gap-2">
-                  <Globe size={14} className="text-accent-blue" /> Socials & Verification
-                </h2>
-                {!adminKeyEntered ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-muted-text">Enter your admin key to manage socials and verification status.</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        value={adminKey}
-                        onChange={(e) => setAdminKey(e.target.value)}
-                        placeholder="Admin key"
-                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-main-text focus:border-accent-blue/50 focus:outline-none"
-                      />
+            {section === "phases" && (
+              <>
+                <div className="rounded-xl border border-border bg-panel p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-main-text">Phase Breakdown</h2>
+                    {isAdmin && (
                       <button
-                        onClick={() => setAdminKeyEntered(true)}
-                        disabled={!adminKey}
-                        className="rounded-lg bg-accent-blue px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                        onClick={() => { setShowPhaseBuilder((s) => !s); setEditingPhaseId(null); }}
+                        className="rounded-lg border border-accent-blue/30 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
                       >
-                        Unlock
+                        {showPhaseBuilder ? "Cancel" : "+ Add Phase"}
+                      </button>
+                    )}
+                  </div>
+
+                  {isAdmin && showPhaseBuilder && (
+                    <div className="mb-6 rounded-lg border border-border bg-background p-4">
+                      <PhaseBuilder collection={address} onDone={() => setShowPhaseBuilder(false)} />
+                    </div>
+                  )}
+
+                  {phaseIds.length === 0 ? (
+                    <p className="text-sm text-muted-text">
+                      {isAdmin ? "No phases yet. Add one to start minting." : "No phases yet. Check back soon."}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {phaseIds.map((id) => (
+                        <div key={id}>
+                          <PhaseRow
+                            collection={address}
+                            phaseId={id}
+                            isAdmin={isAdmin}
+                            isEditing={editingPhaseId === id}
+                            onEditToggle={() => {
+                              setEditingPhaseId((cur) => (cur === id ? null : id));
+                              setShowPhaseBuilder(false);
+                            }}
+                          />
+                          {editingPhaseId === id && isAdmin && (
+                            <EditPhasePanel collection={address} phaseId={id} onDone={() => setEditingPhaseId(null)} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {phaseIds.length > 0 && (
+                  <div className="rounded-xl border border-border bg-panel p-6">
+                    <h2 className="text-sm font-semibold text-main-text mb-4">Manage Allowlists</h2>
+                    <AllowlistManager collection={address} phaseIds={phaseIds} />
+                  </div>
+                )}
+              </>
+            )}
+
+            {section === "settings" && (
+              <div className="rounded-xl border border-border bg-panel p-6">
+                <h2 className="text-sm font-semibold text-main-text mb-1">Trading</h2>
+                <p className="text-xs text-muted-text mb-4">
+                  {tradingLocked
+                    ? "Holders cannot transfer or list right now."
+                    : "Holders can freely trade this collection."}
+                </p>
+
+                {!confirmingLockChange ? (
+                  <button
+                    onClick={() => setConfirmingLockChange(true)}
+                    disabled={lockPending || lockConfirming}
+                    className={`w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+                      tradingLocked
+                        ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                        : "border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10"
+                    }`}
+                  >
+                    {tradingLocked ? <Unlock size={14} /> : <Lock size={14} />}
+                    {tradingLocked ? "Unlock trading" : "Lock trading"}
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-border bg-background p-4 text-sm max-w-md">
+                    <p className="text-main-text mb-3">
+                      {tradingLocked
+                        ? "Unlocking lets holders transfer immediately. Continue?"
+                        : "Locking stops all transfers immediately. Continue?"}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => { await setLocked(!tradingLocked); setConfirmingLockChange(false); }}
+                        disabled={lockPending || lockConfirming}
+                        className="rounded-lg bg-accent-blue px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {lockPending || lockConfirming ? <Loader2 size={12} className="animate-spin" /> : null}
+                        Confirm
+                      </button>
+                      <button onClick={() => setConfirmingLockChange(false)} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-text">
+                        Cancel
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <SocialsEditor collection={address} adminKey={adminKey} />
                 )}
+                {lockConfirmed && <p className="mt-2 text-xs text-green-400">Trading status updated.</p>}
+
+                {/* Placeholder — clarify what "ticketing settings" should control before building it out */}
+                <div className="mt-6 border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-main-text mb-1">Ticketing Settings</h3>
+                  <p className="text-xs text-muted-text">Coming soon.</p>
+                </div>
+
+                <div className="mt-6 border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-main-text mb-3">Contract</h3>
+                  <a
+                    href={`https://etherscan.io/address/${address}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-accent-blue hover:underline font-mono block"
+                  >
+                    {shortenAddress(address)}
+                  </a>
+                  <p className="text-xs text-muted-text mt-1">Ethereum Mainnet</p>
+                </div>
               </div>
             )}
 
-            {/* Admin: Reveal */}
-            {isAdmin && (
+            {section === "metadata" && (
               <div className="rounded-xl border border-border bg-panel p-6">
-                <h2 className="text-sm font-semibold text-main-text mb-4 flex items-center gap-2">
-                  <Eye size={14} className="text-accent-blue" /> Reveal Collection
-                </h2>
+                <h2 className="text-sm font-semibold text-main-text mb-4">Reveal Collection</h2>
                 <RevealPanel collection={address} />
               </div>
             )}
 
-            {/* Admin: Transfer ownership */}
-            {isAdmin && <TransferOwnershipPanel collection={address} />}
-
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-
-            {/* Trading lock */}
-            <div className="rounded-xl border border-border bg-panel p-5">
-              <h3 className="text-sm font-semibold text-main-text mb-1">Trading</h3>
-              <p className="text-xs text-muted-text mb-3">
-                {tradingLocked
-                  ? "Holders cannot transfer or list right now."
-                  : "Holders can freely trade this collection."}
-              </p>
-
-              {!confirmingLockChange ? (
-                <button
-                  onClick={() => setConfirmingLockChange(true)}
-                  disabled={lockPending || lockConfirming}
-                  className={`w-full flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
-                    tradingLocked
-                      ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
-                      : "border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10"
-                  }`}
-                >
-                  {tradingLocked ? <Unlock size={14} /> : <Lock size={14} />}
-                  {tradingLocked ? "Unlock trading" : "Lock trading"}
-                </button>
-              ) : (
-                <div className="rounded-lg border border-border bg-background p-3 text-sm">
-                  <p className="text-main-text mb-3">
-                    {tradingLocked
-                      ? "Unlocking lets holders transfer immediately. Continue?"
-                      : "Locking stops all transfers immediately. Continue?"}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async () => { await setLocked(!tradingLocked); setConfirmingLockChange(false); }}
-                      disabled={lockPending || lockConfirming}
-                      className="rounded-lg bg-accent-blue px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {lockPending || lockConfirming ? <Loader2 size={12} className="animate-spin" /> : null}
-                      Confirm
-                    </button>
-                    <button onClick={() => setConfirmingLockChange(false)} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-text">
-                      Cancel
-                    </button>
-                  </div>
+            {section === "admin" && isAdmin && (
+              <>
+                <div className="rounded-xl border border-border bg-panel p-6">
+                  <h2 className="text-sm font-semibold text-main-text mb-4">Trust Flags</h2>
+                  <AdminTrustEditor collection={address} />
                 </div>
-              )}
-              {lockConfirmed && <p className="mt-2 text-xs text-green-400">Trading status updated.</p>}
-            </div>
+                <TransferOwnershipPanel collection={address} />
+              </>
+            )}
 
-            {/* Contract info */}
-            <div className="rounded-xl border border-border bg-panel p-5">
-              <h3 className="text-sm font-semibold text-main-text mb-3">Contract</h3>
-              <a
-                href={`https://etherscan.io/address/${address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-accent-blue hover:underline font-mono block"
-              >
-                {shortenAddress(address)}
-              </a>
-              <p className="text-xs text-muted-text mt-1">Ethereum Mainnet</p>
-            </div>
           </div>
         </div>
       </div>
@@ -297,13 +276,13 @@ export default function DashboardPage() {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────
+// ── Sub-components (unchanged from before) ──────────────────────
 
 function StatCard({ icon, label, value, sub }: {
   icon: React.ReactNode; label: string; value: string; sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-panel p-4">
+    <div className="rounded-2xl border border-border bg-panel p-4 transition-shadow hover:shadow-glow-blue-sm">
       <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-muted-text">{label}</span></div>
       <p className="text-xl font-bold text-main-text">
         {value}
