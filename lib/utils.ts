@@ -45,7 +45,7 @@ export function formatDate(timestamp: bigint | number): string {
 export function toGateway(uri?: string | null): string | undefined {
   if (!uri) return undefined;
   return uri.startsWith('ipfs://')
-    ? uri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/')
+    ? uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')
     : uri;
 }
 
