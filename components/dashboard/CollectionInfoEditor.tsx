@@ -38,8 +38,11 @@ export function CollectionInfoEditor({ collection }: { collection: Address }) {
     setError(null);
     try {
       setIsUploading(true);
-      const imageURL = logoFile ? (await uploadImage(logoFile)).placeholderURI : metadata?.image ?? "";
-      const bannerURL = bannerFile ? (await uploadImage(bannerFile)).placeholderURI : metadata?.banner ?? "";
+      // Upload both in parallel — avoids one result overwriting the other
+      const [imageURL, bannerURL] = await Promise.all([
+        logoFile ? uploadImage(logoFile).then(r => r.placeholderURI) : Promise.resolve(metadata?.image ?? ""),
+        bannerFile ? uploadImage(bannerFile).then(r => r.placeholderURI) : Promise.resolve(metadata?.banner ?? ""),
+      ]);
       setIsUploading(false);
       await updateMetadata({ description, image: imageURL, banner: bannerURL, externalLink });
     } catch (err: any) {
