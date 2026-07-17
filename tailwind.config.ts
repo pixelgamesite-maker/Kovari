@@ -5,9 +5,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0B0C11',
-        panel: '#15161D',
-        border: '#262833',
+        background: '#0A0D16',
+        panel: '#12162A',
+        border: '#232A45',
         foreground: '#F5F6FA',
         'main-text': '#F5F6FA',
         muted: '#8B8FA3',
@@ -23,9 +23,9 @@ const config: Config = {
         },
         'accent-red': '#E5484D',
         // Kovari-prefixed tokens - same palette, third naming convention
-        'kovari-bg': '#0B0C11',
-        'kovari-panel': '#15161D',
-        'kovari-border': '#262833',
+        'kovari-bg': '#0A0D16',
+        'kovari-panel': '#12162A',
+        'kovari-border': '#232A45',
         'kovari-text': '#F5F6FA',
         'kovari-muted': '#8B8FA3',
         'kovari-blue': '#2D6BFF',
