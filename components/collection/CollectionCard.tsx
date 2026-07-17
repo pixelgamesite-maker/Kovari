@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { type Address } from "viem";
 import { useCollectionInfo, useTotalPhases, usePhase } from "@/hooks/useCollection";
@@ -9,12 +10,15 @@ import { VerifiedBadge } from "./SocialLinks";
 import { formatCount, isPhaseActive, toGateway } from "@/lib/utils";
 import { ImageOff } from "lucide-react";
 
+type Category = "live" | "upcoming" | "ended";
+
 interface Props {
   address: Address;
-  filter?: "live" | "upcoming" | "ended";
+  filter?: Category;
+  onCategorize?: (address: Address, category: Category) => void;
 }
 
-export function CollectionCard({ address, filter }: Props) {
+export function CollectionCard({ address, filter, onCategorize }: Props) {
   const { name, symbol, maxSupply, totalSupply, tradingLocked, placeholderURI, isLoading } = useCollectionInfo(address);
   const { data: totalPhases } = useTotalPhases(address);
   const { meta } = useCollectionMeta(address);
@@ -23,7 +27,14 @@ export function CollectionCard({ address, filter }: Props) {
   const { phase } = usePhase(address, hasPhases ? 0 : -1);
   const status = phase ? isPhaseActive(phase.startTime, phase.endTime, phase.active).status : null;
 
-  if (filter && status && status !== filter) return null;
+  const category: Category | undefined = hasPhases && status ? (status as Category) : undefined;
+
+  useEffect(() => {
+    if (!onCategorize || isLoading || !name || !category) return;
+    onCategorize(address, category);
+  }, [onCategorize, address, category, isLoading, name]);
+
+  if (filter && category !== filter) return null;
 
   if (isLoading || !name) {
     return <div className="rounded-xl border border-border bg-panel h-[300px] animate-pulse" />;
@@ -41,11 +52,7 @@ export function CollectionCard({ address, filter }: Props) {
     >
       <div className="relative h-48 w-full overflow-hidden bg-panel">
         {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={name}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
+          <img src={imageUrl} alt={name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-text">
             <ImageOff size={40} />
