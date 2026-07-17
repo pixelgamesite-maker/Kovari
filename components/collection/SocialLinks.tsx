@@ -1,40 +1,50 @@
 "use client";
 
 import { useCollectionMeta } from "@/hooks/useCollectionMeta";
-import { Twitter, Globe, MessageCircle, Send, CheckCircle } from "lucide-react";
+import { useChainId } from "wagmi";
+import { Twitter, Globe, MessageCircle, Send, CheckCircle, Anchor } from "lucide-react";
 
-export function SocialLinks({ address }: { address: string }) {
+interface SocialLinksProps {
+  address: string;
+}
+
+export function SocialLinks({ address }: SocialLinksProps) {
   const { meta, isLoading } = useCollectionMeta(address);
+  const chainId = useChainId();
 
-  if (isLoading || !meta) return null;
+  // OpenSea URL auto-generated from contract address + chain
+  const openseaUrl = chainId === 8453
+    ? `https://opensea.io/assets/base/${address}`
+    : `https://opensea.io/assets/ethereum/${address}`;
+
+  if (isLoading) return null;
 
   const links = [
-    { url: meta.twitter, icon: <Twitter size={16} />, label: "X" },
-    { url: meta.discord, icon: <MessageCircle size={16} />, label: "Discord" },
-    { url: meta.website, icon: <Globe size={16} />, label: "Website" },
-    { url: meta.telegram, icon: <Send size={16} />, label: "Telegram" },
-  ].filter((l) => l.url);
-
-  if (links.length === 0 && !meta.verified) return null;
+    meta?.website && { url: meta.website, icon: <Globe size={15} />, label: "Website" },
+    meta?.twitter && { url: meta.twitter, icon: <Twitter size={15} />, label: "X" },
+    meta?.discord && { url: meta.discord, icon: <MessageCircle size={15} />, label: "Discord" },
+    meta?.telegram && { url: meta.telegram, icon: <Send size={15} />, label: "Telegram" },
+    { url: openseaUrl, icon: <Anchor size={15} />, label: "OpenSea" },
+  ].filter(Boolean) as { url: string; icon: React.ReactNode; label: string }[];
 
   return (
-    <div className="flex items-center gap-3 flex-wrap">
-      {meta.verified && (
+    <div className="flex items-center gap-2 flex-wrap">
+      {meta?.verified && (
         <span className="flex items-center gap-1 rounded-full bg-accent-blue/10 px-2.5 py-1 text-xs font-medium text-accent-blue">
-          <CheckCircle size={12} />
+          <CheckCircle size={11} />
           Verified
         </span>
       )}
       {links.map((link) => (
         <a
           key={link.label}
-          href={link.url!}
+          href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+          title={link.label}
+          className="flex items-center justify-center h-8 w-8 rounded-lg border border-border text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
         >
           {link.icon}
-          {link.label}
         </a>
       ))}
     </div>
