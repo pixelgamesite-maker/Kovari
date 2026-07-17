@@ -1,18 +1,20 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useDiscoverCollections } from "@/hooks/useCollection";
 import { CollectionCard } from "@/components/collection/CollectionCard";
 import { Button } from "@/components/ui/button";
 import { type Address } from "viem";
-import { Rocket, TrendingUp, Clock, CheckCircle } from "lucide-react";
+import { TrendingUp, Clock, CheckCircle } from "lucide-react";
+
+type Category = "live" | "upcoming" | "ended";
 
 export default function HomePage() {
-  const { addresses, isLoading } = useDiscoverCollections();
+  const { addresses } = useDiscoverCollections();
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(45,107,255,0.08),_transparent_50%)]" />
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 relative">
@@ -37,13 +39,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Collections — no loading spinner, cards self-load */}
       <CollectionSections addresses={addresses} />
     </div>
   );
 }
 
 function CollectionSections({ addresses }: { addresses: Address[] }) {
+  const [categorized, setCategorized] = useState<Partial<Record<Address, Category>>>({});
+
+  const handleCategorize = useCallback((address: Address, category: Category) => {
+    setCategorized((prev) => (prev[address] === category ? prev : { ...prev, [address]: category }));
+  }, []);
+
   if (addresses.length === 0) {
     return (
       <section className="py-24 text-center" id="discover">
@@ -52,46 +59,42 @@ function CollectionSections({ addresses }: { addresses: Address[] }) {
     );
   }
 
+  const live = addresses.filter((a) => categorized[a] === "live");
+  const upcoming = addresses.filter((a) => categorized[a] === "upcoming");
+  const ended = addresses.filter((a) => categorized[a] === "ended");
+  const noneYet = live.length === 0 && upcoming.length === 0 && ended.length === 0;
+
   return (
     <>
-      <Section
-        id="discover"
-        title="Live Now"
-        icon={<TrendingUp className="h-5 w-5 text-accent-blue" />}
-        pulse
-        addresses={addresses}
-        filter="live"
-      />
-      <Section
-        title="Coming Soon"
-        icon={<Clock className="h-5 w-5 text-yellow-400" />}
-        addresses={addresses}
-        filter="upcoming"
-      />
-      <Section
-        title="Past Drops"
-        icon={<CheckCircle className="h-5 w-5 text-muted-text" />}
-        addresses={addresses}
-        filter="ended"
-      />
+      {/* Invisible probes: each card determines its own category once, then reports up */}
+      <div className="sr-only" aria-hidden="true">
+        {addresses.map((address) => (
+          <CollectionCard key={`probe-${address}`} address={address} onCategorize={handleCategorize} />
+        ))}
+      </div>
+
+      {noneYet && (
+        <section className="py-24 text-center text-muted-text" id="discover">Loading drops...</section>
+      )}
+
+      {live.length > 0 && (
+        <Section id="discover" title="Live Now" icon={<TrendingUp className="h-5 w-5 text-accent-blue" />} pulse addresses={live} filter="live" />
+      )}
+      {upcoming.length > 0 && (
+        <Section title="Coming Soon" icon={<Clock className="h-5 w-5 text-yellow-400" />} addresses={upcoming} filter="upcoming" />
+      )}
+      {ended.length > 0 && (
+        <Section title="Past Drops" icon={<CheckCircle className="h-5 w-5 text-muted-text" />} addresses={ended} filter="ended" />
+      )}
     </>
   );
 }
 
 function Section({
-  id,
-  title,
-  icon,
-  pulse,
-  addresses,
-  filter,
+  id, title, icon, pulse, addresses, filter,
 }: {
-  id?: string;
-  title: string;
-  icon: React.ReactNode;
-  pulse?: boolean;
-  addresses: Address[];
-  filter: "live" | "upcoming" | "ended";
+  id?: string; title: string; icon: React.ReactNode; pulse?: boolean;
+  addresses: Address[]; filter: Category;
 }) {
   return (
     <section id={id} className="py-12 border-b border-border last:border-0">
