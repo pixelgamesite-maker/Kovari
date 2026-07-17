@@ -14,7 +14,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           <div className="md:hidden"><MobileMenu /></div>
           <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
-            <span className="h-5 w-5 rounded-[6px] bg-accent-blue shadow-[0_0_12px_var(--accent-blue-glow)]" />
+            <span className="h-5 w-5 rounded-[6px] bg-accent-blue shadow-[0_0_12px_rgba(45,107,255,0.35)]" />
             Mintrs
           </Link>
         </div>
