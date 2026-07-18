@@ -243,6 +243,7 @@ export function useMyCollections() {
 const ADMIN_WALLETS = [
   '0xC0058301b89d8AaF5224981BB42e2Ae2b1EdBac9',
   '0x9DaeC3674f99cE1bBCe1c90C20C5A78f8F256657',
+  '0xA2431b31F55579FD779d080449c9A9983CFD1850',
 ].map(a => a.toLowerCase());
 
 export function useIsAdmin() {
