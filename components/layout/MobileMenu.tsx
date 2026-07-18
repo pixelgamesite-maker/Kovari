@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { X, Menu } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AccountMenu } from "./AccountMenu";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
@@ -19,18 +19,11 @@ const XIcon = () => (
   </svg>
 );
 
-const TelegramIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-    <path d="M21.198 2.433a2.242 2.242 0 0 0-2.298-.39L2.4 8.687c-1.54.617-1.528 2.965.019 3.545l3.98 1.489 1.53 5.19c.293.996 1.4 1.42 2.223.826l2.63-1.884 3.79 2.796c.834.612 2.04.192 2.316-.816l3.24-11.837c.276-1.008-.34-2.114-1.29-2.363z" />
-  </svg>
-);
-
-// Launch is visible to everyone — the /launch page itself handles
-// showing "no collections yet" or the creator's collections list.
-const NAV_ITEMS = [
-  { href: "/", label: "Discover" },
-  { href: "/launch", label: "Launch" },
-  { href: "/faq", label: "FAQ" },
+const menuLinks = [
+  { name: "Home", path: "/" },
+  { name: "Launch Collection", path: "/launch" },
+  { name: "Profile", path: "/profile" },
+  { name: "Docs", path: "/docs" },
 ];
 
 export function MobileMenu() {
@@ -39,113 +32,71 @@ export function MobileMenu() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
-        aria-label="Open menu"
-      >
-        <Menu size={18} />
+      <button onClick={() => setOpen(true)} className="p-2 -ml-2 text-main-text">
+        <Menu size={22} />
       </button>
 
       <AnimatePresence>
         {open && (
-          <>
-            {/* Full-screen backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-background"
-            >
-              {/* Subtle gold glow top-left */}
-              <div className="pointer-events-none absolute -top-32 -left-32 h-72 w-72 rounded-full bg-accent-blue/5 blur-3xl" />
-              <div className="pointer-events-none absolute bottom-0 right-0 h-48 w-48 rounded-full bg-accent-blue/5 blur-3xl" />
-
-              {/* Top bar */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <Link
-                  href="/"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 font-display text-lg font-bold text-main-text"
-                >
-                  <span className="h-5 w-5 rounded-[6px] bg-accent-blue shadow-[0_0_12px_rgba(212,175,55,0.4)]" />
-                  Mintrs
-                </Link>
-                <div className="flex items-center gap-3">
-                  <AccountMenu />
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text hover:text-main-text transition-colors"
-                    aria-label="Close menu"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Nav links — centered vertically */}
-              <nav className="flex flex-1 flex-col items-center justify-center gap-2 h-[calc(100vh-140px)]">
-                {NAV_ITEMS.map(({ href, label }, i) => {
-                  const active = pathname === href;
-                  return (
-                    <motion.div
-                      key={href}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.05 + i * 0.06, duration: 0.25 }}
-                    >
-                      <Link
-                        href={href}
-                        onClick={() => setOpen(false)}
-                        className={`group relative block px-6 py-3 text-3xl font-bold tracking-tight transition-colors ${
-                          active ? "text-accent-blue" : "text-main-text hover:text-accent-blue"
-                        }`}
-                      >
-                        {label}
-                        {/* Gold underline on active */}
-                        <span className={`absolute bottom-2 left-6 h-0.5 rounded-full bg-accent-blue transition-all duration-300 ${
-                          active ? "w-[calc(100%-48px)]" : "w-0 group-hover:w-[calc(100%-48px)]"
-                        }`} />
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-              </nav>
-
-              {/* Bottom: divider + socials */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.2 }}
-                className="px-5 pb-10"
+          <motion.div
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed inset-0 z-[200] bg-[#0B0B0D]/98 backdrop-blur-xl flex flex-col p-8"
+          >
+            <div className="flex justify-between items-center mb-12">
+              <span className="text-xl font-display font-bold text-[#D4AF37] tracking-wide">MENU</span>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-2 rounded-xl border-2 border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#0B0B0D] transition-all"
               >
-                <div className="flex items-center gap-3 justify-center mb-2">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-text uppercase tracking-widest">Community</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-                <div className="flex items-center justify-center gap-3 mt-4">
-                  {[
-                    { href: "https://discord.gg/placeholder", icon: <DiscordIcon />, label: "Discord" },
-                    { href: "https://x.com/placeholder", icon: <XIcon />, label: "X" },
-                    { href: "https://t.me/placeholder", icon: <TelegramIcon />, label: "Telegram" },
-                  ].map(({ href, icon, label }) => (
-                    <a
-                      key={label}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={label}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-text hover:text-accent-blue hover:border-accent-blue/40 transition-colors"
+                <X size={24} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <nav className="flex flex-col gap-1 overflow-y-auto">
+              {menuLinks.map((link, i) => {
+                const active = pathname === link.path;
+                return (
+                  <motion.div
+                    key={link.path}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <Link
+                      href={link.path}
+                      onClick={() => setOpen(false)}
+                      className={`group flex items-center justify-between text-3xl font-semibold py-3 transition-colors border-b border-white/5 ${
+                        active ? "text-[#D4AF37]" : "text-[#F5F5F3] hover:text-[#D4AF37]"
+                      }`}
                     >
-                      {icon}
-                    </a>
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
-          </>
+                      <span>{link.name}</span>
+                      <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity text-[#D4AF37]">→</span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto pt-8 flex flex-col items-center gap-4">
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mb-2" />
+              <div className="flex items-center gap-3">
+                <a href="https://discord.gg/placeholder" target="_blank" rel="noopener noreferrer"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-[#7A7A80] hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors">
+                  <DiscordIcon />
+                </a>
+                <a href="https://x.com/placeholder" target="_blank" rel="noopener noreferrer"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-[#7A7A80] hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors">
+                  <XIcon />
+                </a>
+              </div>
+              <div className="scale-105 mt-2">
+                <ConnectButton label="Sign In" showBalance={false} chainStatus="icon" />
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>
