@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateCollection, useMyCollections, useCollectionInfo } from "@/hooks/useCollection";
+import { useChainId } from "wagmi";
 import { shortenAddress } from "@/lib/utils";
 import { type Address } from "viem";
 import { Rocket, Plus, Loader2, ArrowRight, Check } from "lucide-react";
@@ -116,7 +117,10 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [form, setForm] = useState({ name: "", symbol: "", maxSupply: "", royaltyBps: "250" });
+  const [form, setForm] = useState({ name: "", symbol: "", maxSupply: "", royaltyBps: "250", royaltyRecipient: "" });
+  const chainId = useChainId();
+  const chainLabel = chainId === 8453 ? "Base" : "Ethereum Mainnet";
+  const chainIcon = chainId === 8453 ? "🔵" : "⟠";
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -218,6 +222,24 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
                 />
                 <p className="mt-1 text-xs text-muted-text">Max 10%. Locked forever after creation.</p>
               </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-main-text">Royalty Recipient Wallet</label>
+                <input
+                  type="text"
+                  value={form.royaltyRecipient}
+                  onChange={(e) => setForm({ ...form, royaltyRecipient: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-main-text focus:border-accent-blue focus:outline-none font-mono text-sm"
+                  placeholder="0x... wallet that receives royalties"
+                />
+                <p className="mt-1 text-xs text-muted-text">Leave blank to use your connected wallet.</p>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-4 py-3 text-sm">
+                <span className="text-lg">{chainIcon}</span>
+                <div>
+                  <p className="text-xs text-muted-text">Deploying on</p>
+                  <p className="font-medium text-main-text">{chainLabel}</p>
+                </div>
+              </div>
               <div className="flex gap-3">
                 <button onClick={back} className="flex-1 rounded-lg border border-border py-3.5 text-muted-text">Back</button>
                 <button
@@ -238,6 +260,8 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
                 <Row label="Symbol" value={form.symbol} />
                 <Row label="Max Supply" value={form.maxSupply} />
                 <Row label="Royalty" value={`${Number(form.royaltyBps) / 100}%`} />
+                <Row label="Royalty Wallet" value={form.royaltyRecipient || "Connected wallet"} />
+                <Row label="Chain" value={chainLabel} />
               </div>
               <p className="text-xs text-muted-text">
                 You'll set your logo, banner, and pre-reveal image from the collection dashboard after deploying.
