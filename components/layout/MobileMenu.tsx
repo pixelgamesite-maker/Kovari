@@ -28,13 +28,13 @@ const TelegramIcon = () => (
 const NAV_ITEMS = [
   { href: "/", label: "Discover" },
   { href: "/launch", label: "Launch" },
+  { href: "/docs", label: "Docs" },
   { href: "/faq", label: "FAQ" },
 ];
 
 const SOCIALS = [
   { href: "https://discord.gg/placeholder", icon: <DiscordIcon />, label: "Discord" },
   { href: "https://x.com/placeholder", icon: <XIcon />, label: "X" },
-  { href: "https://t.me/placeholder", icon: <TelegramIcon />, label: "Telegram" },
 ];
 
 export function MobileMenu() {
