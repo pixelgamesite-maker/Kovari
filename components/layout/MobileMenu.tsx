@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { X, Menu } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-import { createPortal } from "react-dom";
 import { AccountMenu } from "./AccountMenu";
 
 const DiscordIcon = () => (
@@ -34,99 +32,93 @@ const NAV_ITEMS = [
 
 export function MobileMenu() {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
-
-  const menuContent = (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[9999] flex flex-col"
-      style={{ backgroundColor: "#0B0B0D" }}
-    >
-      <div className="pointer-events-none absolute -top-32 -left-32 h-72 w-72 rounded-full opacity-30"
-           style={{ background: "radial-gradient(circle, rgba(212,175,55,0.15), transparent)" }} />
-
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2 font-display text-lg font-bold text-main-text">
-          <span className="h-5 w-5 rounded-[6px] bg-accent-blue" />
-          Mintrs
-        </Link>
-        <div className="flex items-center gap-3">
-          <AccountMenu />
-          <button onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text" aria-label="Close menu">
-            <X size={18} />
-          </button>
-        </div>
-      </div>
-
-      <nav className="flex flex-1 flex-col items-center justify-center gap-2">
-        {NAV_ITEMS.map(({ href, label }, i) => {
-          const active = pathname === href;
-          return (
-            <motion.div key={href} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.05, duration: 0.2 }}>
-              <Link
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`group relative block px-8 py-3 text-3xl font-bold tracking-tight transition-colors ${
-                  active ? "text-accent-blue" : "text-main-text hover:text-accent-blue"
-                }`}
-              >
-                {label}
-                <span className={`absolute bottom-2 left-8 h-0.5 rounded-full bg-accent-blue transition-all duration-300 ${
-                  active ? "w-[calc(100%-64px)]" : "w-0 group-hover:w-[calc(100%-64px)]"
-                }`} />
-              </Link>
-            </motion.div>
-          );
-        })}
-      </nav>
-
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="px-5 pb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-[10px] text-muted-text uppercase tracking-widest">Community</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          {[
-            { href: "https://discord.gg/placeholder", icon: <DiscordIcon />, label: "Discord" },
-            { href: "https://x.com/placeholder", icon: <XIcon />, label: "X" },
-            { href: "https://t.me/placeholder", icon: <TelegramIcon />, label: "Telegram" },
-          ].map(({ href, icon, label }) => (
-            <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-text hover:text-accent-blue hover:border-accent-blue/40 transition-colors">
-              {icon}
-            </a>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
 
   return (
     <>
+      {/* Hamburger button */}
       <button
         onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text hover:text-main-text transition-colors"
         aria-label="Open menu"
       >
         <Menu size={18} />
       </button>
 
-      {mounted && (
-        <AnimatePresence>
-          {open && createPortal(menuContent, document.body)}
-        </AnimatePresence>
+      {/* Fullscreen overlay — rendered inline, no portal */}
+      {open && (
+        <div
+          className="fixed inset-0 flex flex-col"
+          style={{ backgroundColor: "#0B0B0D", zIndex: 9999 }}
+        >
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <Link
+              href="/"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 font-display text-lg font-bold text-main-text"
+            >
+              <span className="h-5 w-5 rounded-[6px] bg-accent-blue" />
+              Mintrs
+            </Link>
+            <div className="flex items-center gap-3">
+              <AccountMenu />
+              <button
+                onClick={() => setOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-text"
+                aria-label="Close menu"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <nav className="flex flex-1 flex-col items-center justify-center gap-1">
+            {NAV_ITEMS.map(({ href, label }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  className={`block px-8 py-4 text-3xl font-bold tracking-tight transition-colors ${
+                    active ? "text-accent-blue" : "text-main-text"
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Socials */}
+          <div className="px-5 pb-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[10px] text-muted-text uppercase tracking-widest">Community</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              {[
+                { href: "https://discord.gg/placeholder", icon: <DiscordIcon />, label: "Discord" },
+                { href: "https://x.com/placeholder", icon: <XIcon />, label: "X" },
+                { href: "https://t.me/placeholder", icon: <TelegramIcon />, label: "Telegram" },
+              ].map(({ href, icon, label }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-text hover:text-accent-blue transition-colors"
+                >
+                  {icon}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
