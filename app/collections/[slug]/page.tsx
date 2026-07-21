@@ -145,18 +145,7 @@ export default function CollectionPage() {
 
         {/* Tag chips — images instead of emojis */}
         <div className="mb-4 flex items-center gap-2 flex-wrap">
-          {/* Contract address */}
-          <a
-            href={`${etherscanBase}/address/${address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text hover:text-main-text transition-colors font-mono"
-          >
-            <Image src="/Arc.jpg" alt="Contract" width={12} height={12} className="rounded-full" />
-            {shortenAddress(address)}
-          </a>
-
-          {/* ERC721 */}
+{/* ERC721 */}
           <span className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
             <Image src="/Erc.jpg" alt="ERC721" width={12} height={12} className="rounded-full" />
             ERC721
