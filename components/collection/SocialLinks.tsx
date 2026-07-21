@@ -9,22 +9,22 @@ export function SocialLinks({ address }: { address: string }) {
   const { meta, isLoading } = useCollectionMeta(address);
   const chainId = useChainId();
 
-  const openseaUrl = chainId === 8453
+  const isBase = chainId === 8453;
+  const openseaUrl = isBase
     ? `https://opensea.io/assets/base/${address}`
     : `https://opensea.io/assets/ethereum/${address}`;
 
+  const etherscanUrl = isBase
+    ? `https://basescan.org/address/${address}`
+    : `https://etherscan.io/address/${address}`;
+
   if (isLoading) return null;
 
-  const links = [
-    meta?.website  && { url: meta.website,  icon: <Globe size={15} />,          label: "Website" },
-    meta?.twitter  && { url: meta.twitter,  icon: <Twitter size={15} />,         label: "X" },
-    meta?.discord  && { url: meta.discord,  icon: <MessageCircle size={15} />,   label: "Discord" },
-    meta?.telegram && { url: meta.telegram, icon: <Send size={15} />,            label: "Telegram" },
-    {
-      url: openseaUrl,
-      icon: <Image src="/Opensea.png" alt="OpenSea" width={15} height={15} className="rounded-sm" />,
-      label: "OpenSea",
-    },
+  const socialLinks = [
+    meta?.website  && { url: meta.website,  icon: <Globe size={15} />,        label: "Website" },
+    meta?.twitter  && { url: meta.twitter,  icon: <Twitter size={15} />,       label: "X" },
+    meta?.discord  && { url: meta.discord,  icon: <MessageCircle size={15} />, label: "Discord" },
+    meta?.telegram && { url: meta.telegram, icon: <Send size={15} />,          label: "Telegram" },
   ].filter(Boolean) as { url: string; icon: React.ReactNode; label: string }[];
 
   return (
@@ -34,7 +34,9 @@ export function SocialLinks({ address }: { address: string }) {
           <CheckCircle size={11} /> Verified
         </span>
       )}
-      {links.map((link) => (
+
+      {/* Regular social icon buttons */}
+      {socialLinks.map((link) => (
         <a
           key={link.label}
           href={link.url}
@@ -46,6 +48,30 @@ export function SocialLinks({ address }: { address: string }) {
           {link.icon}
         </a>
       ))}
+
+      {/* OpenSea + Etherscan — larger, side by side */}
+      <div className="flex items-center gap-2">
+        <a
+          href={openseaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View on OpenSea"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+        >
+          <Image src="/Opensea.png" alt="OpenSea" width={18} height={18} className="rounded-sm" />
+          <span>OpenSea</span>
+        </a>
+        <a
+          href={etherscanUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View on Etherscan"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+        >
+          <Image src="/Ethereum.png" alt="Etherscan" width={18} height={18} className="rounded-full" />
+          <span>{isBase ? "Basescan" : "Etherscan"}</span>
+        </a>
+      </div>
     </div>
   );
 }
