@@ -71,7 +71,7 @@ export function SocialLinks({ address }: { address: string }) {
           title={isBase ? "View on Basescan" : "View on Etherscan"}
           className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
         >
-          <Image src="/Ethereum.png" alt="Etherscan" width={18} height={18} className="rounded-full" />
+          <Image src="/etherscan.svg" alt="Etherscan" width={18} height={18} className="rounded-full" />
           {isBase ? "Basescan" : "Etherscan"}
         </a>
       </div>
