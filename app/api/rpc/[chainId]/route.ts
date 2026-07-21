@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const RPC_URLS: Record<string, string> = {
   '1':    `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
   '8453': `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  '4663': 'https://rpc.mainnet.chain.robinhood.com',
 };
 
 export async function POST(
