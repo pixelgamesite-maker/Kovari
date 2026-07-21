@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCreateCollection, useMyCollections, useCollectionInfo } from "@/hooks/useCollection";
-import { useChainId } from "wagmi";
+import { useCreateCollection, useMyCollections, useCollectionInfo, useUpdateCollectionMetadata } from "@/hooks/useCollection";
+import { uploadImage } from "@/lib/platform-api";
 import { shortenAddress } from "@/lib/utils";
 import { type Address } from "viem";
-import { Rocket, Plus, Loader2, ArrowRight, Check } from "lucide-react";
+import { Rocket, Plus, Loader2, ArrowRight, Check, ImagePlus } from "lucide-react";
 
-const STEPS = ["Details", "Supply & Royalty", "Review"];
+const STEPS = ["Details", "Supply & Royalty", "Artwork", "Review"];
 
 export default function LaunchPage() {
   const { isConnected } = useAccount();
@@ -117,38 +117,97 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [form, setForm] = useState({ name: "", symbol: "", maxSupply: "", royaltyBps: "250", royaltyRecipient: "" });
+  const [form, setForm] = useState({ name: "", symbol: "", maxSupply: "", royaltyBps: "250" });
   const chainId = useChainId();
-  const chainLabel = chainId === 8453 ? "Base" : "Ethereum Mainnet";
-  const chainIcon = chainId === 8453 ? "🔵" : "⟠";
+  const chainLabel = chainId === 8453 ? "Base" : chainId === 4663 ? "Robinhood Chain" : "Ethereum Mainnet";
+  const chainIcon = chainId === 8453 ? "🔵" : chainId === 4663 ? "🤖" : "⟠";
+
+  // Artwork state
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  // Post-deploy metadata
+  const [isUploading, setIsUploading] = useState(false);
+  const [deployedAddress, setDeployedAddress] = useState<Address | null>(null);
+  const [metadataStatus, setMetadataStatus] = useState<"idle" | "setting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  const busy = isUploading || isPending || isConfirming;
+
+  // Once collection deploys, auto-set metadata if images were uploaded
   useEffect(() => {
-    if (isConfirmed && newCollectionAddress) router.push(`/dashboard/${newCollectionAddress}`);
-  }, [isConfirmed, newCollectionAddress, router]);
+    if (isConfirmed && newCollectionAddress) {
+      setDeployedAddress(newCollectionAddress);
+      if (logoFile || bannerFile) {
+        setMetadataStatus("setting");
+      } else {
+        router.push(`/dashboard/${newCollectionAddress}`);
+      }
+    }
+  }, [isConfirmed, newCollectionAddress]);
+
+  // Set metadata after deploy
+  const { updateMetadata, isConfirmed: metaConfirmed } = useUpdateCollectionMetadata(deployedAddress ?? "0x0" as Address);
+
+  useEffect(() => {
+    if (metadataStatus !== "setting" || !deployedAddress) return;
+
+    const run = async () => {
+      try {
+        const [logoURL, bannerURL] = await Promise.all([
+          logoFile ? uploadImage(logoFile).then(r => r.placeholderURI) : Promise.resolve(""),
+          bannerFile ? uploadImage(bannerFile).then(r => r.placeholderURI) : Promise.resolve(""),
+        ]);
+        await updateMetadata({ description: "", image: logoURL, banner: bannerURL, externalLink: "" });
+      } catch {
+        // Metadata failed — still redirect, can set from dashboard
+        router.push(`/dashboard/${deployedAddress}`);
+      }
+    };
+
+    run();
+  }, [metadataStatus, deployedAddress]);
+
+  useEffect(() => {
+    if (metaConfirmed && deployedAddress) {
+      setMetadataStatus("done");
+      router.push(`/dashboard/${deployedAddress}`);
+    }
+  }, [metaConfirmed, deployedAddress]);
 
   const next = () => { setDir(1); setStep((s) => Math.min(s + 1, STEPS.length - 1)); };
   const back = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
-  const busy = isPending || isConfirming;
 
   const handleDeploy = async () => {
     setError(null);
+    setIsUploading(true);
     try {
+      setIsUploading(false);
       await createCollection({
         name: form.name,
         symbol: form.symbol,
         maxSupply: BigInt(form.maxSupply),
-        // NOTE: placeholder image now lives on the dashboard (Collection Info),
-        // not in this flow. Passing an empty string here — needs verifying
-        // against the Factory contract: if it reverts on an empty placeholderURI,
-        // we'll need the contract to accept empty/default this field instead.
         placeholderURI: "",
         royaltyBps: BigInt(form.royaltyBps),
       });
     } catch (err: any) {
+      setIsUploading(false);
       setError(err.message || "Something went wrong");
     }
   };
+
+  // Show metadata setting screen
+  if (metadataStatus === "setting") {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center px-6 py-32 text-center">
+        <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-blue" />
+        <h2 className="text-xl font-bold text-main-text mb-2">Setting up your collection</h2>
+        <p className="text-muted-text text-sm">Uploading artwork and saving metadata — confirm the second transaction in your wallet.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-xl px-6 py-12">
@@ -171,6 +230,7 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
           exit={{ opacity: 0, x: dir > 0 ? -40 : 40 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
         >
+          {/* Step 0 — Details */}
           {step === 0 && (
             <div className="space-y-6">
               <div>
@@ -201,6 +261,7 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
             </div>
           )}
 
+          {/* Step 1 — Supply & Royalty */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
@@ -220,18 +281,7 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
                   onChange={(e) => setForm({ ...form, royaltyBps: String(Math.round(Number(e.target.value) * 100)) })}
                   className="w-full rounded-lg border border-border bg-background px-4 py-3 text-main-text focus:border-accent-blue focus:outline-none"
                 />
-                <p className="mt-1 text-xs text-muted-text">Max 10%. Locked forever after creation.</p>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-main-text">Royalty Recipient Wallet</label>
-                <input
-                  type="text"
-                  value={form.royaltyRecipient}
-                  onChange={(e) => setForm({ ...form, royaltyRecipient: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-4 py-3 text-main-text focus:border-accent-blue focus:outline-none font-mono text-sm"
-                  placeholder="0x... wallet that receives royalties"
-                />
-                <p className="mt-1 text-xs text-muted-text">Leave blank to use your connected wallet.</p>
+                <p className="mt-1 text-xs text-muted-text">Max 10%. Royalties go to the wallet that deploys this collection.</p>
               </div>
               <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-4 py-3 text-sm">
                 <span className="text-lg">{chainIcon}</span>
@@ -253,20 +303,118 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
             </div>
           )}
 
+          {/* Step 2 — Artwork */}
           {step === 2 && (
             <div className="space-y-6">
-              <div className="rounded-xl border border-border bg-panel p-5 space-y-3 text-sm">
-                <Row label="Name" value={form.name} />
-                <Row label="Symbol" value={form.symbol} />
-                <Row label="Max Supply" value={form.maxSupply} />
-                <Row label="Royalty" value={`${Number(form.royaltyBps) / 100}%`} />
-                <Row label="Royalty Wallet" value={form.royaltyRecipient || "Connected wallet"} />
-                <Row label="Chain" value={chainLabel} />
-              </div>
-              <p className="text-xs text-muted-text">
-                You'll set your logo, banner, and pre-reveal image from the collection dashboard after deploying.
+              <p className="text-sm text-muted-text">
+                Upload your collection logo and banner. These appear on the mint page and marketplaces like OpenSea.
+                You can update them anytime from the dashboard.
               </p>
-              {error && <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>}
+
+              {/* Logo */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-main-text">
+                  Logo
+                </label>
+                <label className="flex h-32 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background text-muted-text hover:border-accent-blue/50 transition-colors">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <ImagePlus size={22} />
+                      <span className="text-xs">Logo</span>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); }
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Banner */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-main-text">
+                  Banner <span className="text-muted-text font-normal">(optional)</span>
+                </label>
+                <label className="flex aspect-[3/1] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-background text-muted-text hover:border-accent-blue/50 transition-colors">
+                  {bannerPreview ? (
+                    <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <ImagePlus size={22} />
+                      <span className="text-xs">Banner image</span>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) { setBannerFile(f); setBannerPreview(URL.createObjectURL(f)); }
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={back} className="flex-1 rounded-lg border border-border py-3.5 text-muted-text">Back</button>
+                <button
+                  onClick={next}
+                  className="flex-1 rounded-lg bg-accent-blue py-3.5 font-medium text-background transition-opacity"
+                >
+                  {logoFile ? "Continue" : "Skip for now"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Review */}
+          {step === 3 && (
+            <div className="space-y-6">
+              {/* Artwork preview */}
+              {(logoPreview || bannerPreview) && (
+                <div className="rounded-xl border border-border bg-panel overflow-hidden">
+                  {bannerPreview && (
+                    <div className="relative h-24 w-full overflow-hidden">
+                      <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-panel/80 to-transparent" />
+                    </div>
+                  )}
+                  <div className={`flex items-end gap-3 p-4 ${bannerPreview ? "-mt-8" : ""}`}>
+                    {logoPreview && (
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 border-panel bg-background">
+                        <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-main-text">{form.name}</p>
+                      <p className="text-xs text-muted-text font-mono">${form.symbol}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-border bg-panel p-5 space-y-3 text-sm">
+                <Row label="Name"       value={form.name} />
+                <Row label="Symbol"     value={`$${form.symbol}`} />
+                <Row label="Max Supply" value={Number(form.maxSupply).toLocaleString()} />
+                <Row label="Royalty"    value={`${Number(form.royaltyBps) / 100}%`} />
+                <Row label="Chain"      value={chainLabel} />
+                <Row label="Logo"       value={logoFile ? logoFile.name : "Not set (can add from dashboard)"} />
+                <Row label="Banner"     value={bannerFile ? bannerFile.name : "Not set (can add from dashboard)"} />
+              </div>
+
+              {(logoFile || bannerFile) && (
+                <p className="text-xs text-muted-text">
+                  Deploying requires two wallet confirmations — one to create the collection, one to save the artwork.
+                </p>
+              )}
+
+              {error && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
+              )}
+
               <div className="flex gap-3">
                 <button onClick={back} className="flex-1 rounded-lg border border-border py-3.5 text-muted-text">Back</button>
                 <button
@@ -275,7 +423,10 @@ function CreateCollectionWizard({ showBackButton, onBack }: { showBackButton: bo
                   className="flex-1 rounded-lg bg-accent-blue py-3.5 font-medium text-background disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {busy ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {isPending ? "Confirm in wallet..." : isConfirming ? "Deploying..." : "Deploy Collection"}
+                  {isUploading ? "Uploading artwork..."
+                    : isPending ? "Confirm in wallet..."
+                    : isConfirming ? "Deploying..."
+                    : "Deploy Collection"}
                 </button>
               </div>
             </div>
@@ -290,7 +441,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between border-b border-border pb-2 last:border-0 last:pb-0">
       <span className="text-muted-text">{label}</span>
-      <span className="font-medium text-main-text">{value}</span>
+      <span className="font-medium text-main-text text-right max-w-[60%] truncate">{value}</span>
     </div>
   );
 }
