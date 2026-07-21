@@ -28,48 +28,51 @@ export function SocialLinks({ address }: { address: string }) {
   ].filter(Boolean) as { url: string; icon: React.ReactNode; label: string }[];
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {meta?.verified && (
-        <span className="flex items-center gap-1 rounded-full bg-accent-blue/10 px-2.5 py-1 text-xs font-medium text-accent-blue">
-          <CheckCircle size={11} /> Verified
-        </span>
+    <div className="flex flex-col gap-3">
+      {/* Verified badge + social icons */}
+      {(meta?.verified || socialLinks.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {meta?.verified && (
+            <span className="flex items-center gap-1 rounded-full bg-accent-blue/10 px-2.5 py-1 text-xs font-medium text-accent-blue">
+              <CheckCircle size={11} /> Verified
+            </span>
+          )}
+          {socialLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={link.label}
+              className="flex items-center justify-center h-8 w-8 rounded-lg border border-border text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+            >
+              {link.icon}
+            </a>
+          ))}
+        </div>
       )}
 
-      {/* Regular social icon buttons */}
-      {socialLinks.map((link) => (
-        <a
-          key={link.label}
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={link.label}
-          className="flex items-center justify-center h-8 w-8 rounded-lg border border-border text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
-        >
-          {link.icon}
-        </a>
-      ))}
-
-      {/* OpenSea + Etherscan — larger, side by side */}
-      <div className="flex items-center gap-2">
+      {/* OpenSea + Etherscan — centred, side by side */}
+      <div className="flex items-center justify-center gap-3">
         <a
           href={openseaUrl}
           target="_blank"
           rel="noopener noreferrer"
           title="View on OpenSea"
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
         >
           <Image src="/Opensea.png" alt="OpenSea" width={18} height={18} className="rounded-sm" />
-          <span>OpenSea</span>
+          OpenSea
         </a>
         <a
           href={etherscanUrl}
           target="_blank"
           rel="noopener noreferrer"
-          title="View on Etherscan"
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
+          title={isBase ? "View on Basescan" : "View on Etherscan"}
+          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-xs text-muted-text hover:text-main-text hover:border-accent-blue/30 transition-colors"
         >
           <Image src="/Ethereum.png" alt="Etherscan" width={18} height={18} className="rounded-full" />
-          <span>{isBase ? "Basescan" : "Etherscan"}</span>
+          {isBase ? "Basescan" : "Etherscan"}
         </a>
       </div>
     </div>
