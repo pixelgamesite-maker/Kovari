@@ -1,28 +1,30 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useDiscoverCollections } from "@/hooks/useCollection";
 import { CollectionCard } from "@/components/collection/CollectionCard";
 import { Button } from "@/components/ui/button";
 import { type Address } from "viem";
-import { TrendingUp, Clock, CheckCircle, Search, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { TrendingUp, Search, SlidersHorizontal, ChevronDown } from "lucide-react";
 
 type Category = "live" | "upcoming" | "ended";
 type FilterType = "all" | "live" | "upcoming" | "ended" | "featured";
-type ChainFilter = "all" | "1" | "8453";
+type ChainFilter = "all" | "1" | "8453" | "4663";
 
-const CHAIN_OPTIONS: { value: ChainFilter; label: string; icon: string }[] = [
-  { value: "all", label: "All Chains", icon: "⛓" },
-  { value: "1", label: "Ethereum", icon: "⟠" },
-  { value: "8453", label: "Base", icon: "🔵" },
+const CHAIN_OPTIONS: { value: ChainFilter; label: string; image?: string }[] = [
+  { value: "all",  label: "All Chains" },
+  { value: "1",    label: "Ethereum",        image: "/Ethereum.png" },
+  { value: "8453", label: "Base",            image: "/Base.png" },
+  { value: "4663", label: "Robinhood Chain", image: "/Robinhood.png" },
 ];
 
 const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "live", label: "Live" },
+  { value: "all",      label: "All" },
+  { value: "live",     label: "Live" },
   { value: "upcoming", label: "Upcoming" },
-  { value: "ended", label: "Ended" },
+  { value: "ended",    label: "Ended" },
   { value: "featured", label: "Featured" },
 ];
 
@@ -65,27 +67,35 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center gap-3">
 
-            {/* Chain dropdown */}
+            {/* Chain dropdown with images */}
             <div className="relative">
               <button
                 onClick={() => setShowChainDropdown((s) => !s)}
                 className="flex items-center gap-2 rounded-xl border border-border bg-panel px-3 py-2 text-sm text-main-text hover:border-accent-blue/40 transition-colors whitespace-nowrap"
               >
-                <span>{selectedChain.icon}</span>
+                {selectedChain.image ? (
+                  <Image src={selectedChain.image} alt={selectedChain.label} width={16} height={16} className="rounded-full" />
+                ) : (
+                  <span className="h-4 w-4 rounded-full bg-border" />
+                )}
                 <span className="hidden sm:inline">{selectedChain.label}</span>
                 <ChevronDown size={14} className="text-muted-text" />
               </button>
               {showChainDropdown && (
-                <div className="absolute top-full mt-1 left-0 z-50 min-w-[140px] rounded-xl border border-border bg-panel shadow-xl overflow-hidden">
+                <div className="absolute top-full mt-1 left-0 z-50 min-w-[160px] rounded-xl border border-border bg-panel shadow-xl overflow-hidden">
                   {CHAIN_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => { setChainFilter(opt.value); setShowChainDropdown(false); }}
-                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-accent-blue/10 ${
+                      className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-accent-blue/10 ${
                         chainFilter === opt.value ? "text-accent-blue" : "text-main-text"
                       }`}
                     >
-                      <span>{opt.icon}</span>
+                      {opt.image ? (
+                        <Image src={opt.image} alt={opt.label} width={16} height={16} className="rounded-full" />
+                      ) : (
+                        <span className="h-4 w-4 rounded-full bg-border" />
+                      )}
                       {opt.label}
                     </button>
                   ))}
@@ -130,7 +140,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      <CollectionSections
+      {/* Collections */}
+      <CollectionGrid
         addresses={addresses}
         search={search}
         activeFilter={activeFilter}
@@ -140,7 +151,7 @@ export default function HomePage() {
   );
 }
 
-function CollectionSections({
+function CollectionGrid({
   addresses, search, activeFilter, chainFilter,
 }: {
   addresses: Address[];
@@ -148,12 +159,6 @@ function CollectionSections({
   activeFilter: FilterType;
   chainFilter?: number;
 }) {
-  const [categorized, setCategorized] = useState<Partial<Record<Address, Category>>>({});
-
-  const handleCategorize = useCallback((address: Address, category: Category) => {
-    setCategorized((prev) => (prev[address] === category ? prev : { ...prev, [address]: category }));
-  }, []);
-
   if (addresses.length === 0) {
     return (
       <section className="py-24 text-center">
@@ -162,117 +167,56 @@ function CollectionSections({
     );
   }
 
-  const live = addresses.filter((a) => categorized[a] === "live");
-  const upcoming = addresses.filter((a) => categorized[a] === "upcoming");
-  const ended = addresses.filter((a) => categorized[a] === "ended");
-  const noneYet = live.length === 0 && upcoming.length === 0 && ended.length === 0;
-
+  // When a specific filter is active — flat grid, cards self-filter via prop
   if (activeFilter !== "all") {
-    const filtered = activeFilter === "featured"
-      ? addresses
-      : addresses.filter((a) => categorized[a] === activeFilter);
-
     return (
       <section className="py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="sr-only" aria-hidden="true">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {addresses.map((address) => (
-              <CollectionCard key={`probe-${address}`} address={address} onCategorize={handleCategorize} />
+              <CollectionCard
+                key={address}
+                address={address}
+                filter={activeFilter === "featured" ? undefined : activeFilter as Category}
+                searchQuery={search}
+                chainFilter={chainFilter}
+              />
             ))}
           </div>
-          {filtered.length === 0 ? (
-            <p className="text-center text-muted-text py-24">No collections found.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map((address) => (
-                <CollectionCard
-                  key={address}
-                  address={address}
-                  filter={activeFilter === "featured" ? undefined : activeFilter as Category}
-                  searchQuery={search}
-                  chainFilter={chainFilter}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </section>
     );
   }
 
+  // Default — three sections, each renders all cards and hides non-matching ones
   return (
     <>
-      <div className="sr-only" aria-hidden="true">
-        {addresses.map((address) => (
-          <CollectionCard key={`probe-${address}`} address={address} onCategorize={handleCategorize} />
-        ))}
-      </div>
-
-      {noneYet && (
-        <section className="py-24 text-center text-muted-text">Loading drops...</section>
-      )}
-
-      {live.length > 0 && (
-        <Section
-          id="discover"
-          title="Live Now"
-          indicator="green"
-          addresses={live}
-          filter="live"
-          search={search}
-          chainFilter={chainFilter}
-        />
-      )}
-      {upcoming.length > 0 && (
-        <Section
-          title="Upcoming"
-          indicator="yellow"
-          addresses={upcoming}
-          filter="upcoming"
-          search={search}
-          chainFilter={chainFilter}
-        />
-      )}
-      {ended.length > 0 && (
-        <Section
-          title="Ended"
-          indicator="red"
-          addresses={ended}
-          filter="ended"
-          search={search}
-          chainFilter={chainFilter}
-        />
-      )}
+      <Section title="Live Now"  indicator="green" filter="live"     addresses={addresses} search={search} chainFilter={chainFilter} pulse />
+      <Section title="Upcoming"  indicator="yellow" filter="upcoming" addresses={addresses} search={search} chainFilter={chainFilter} />
+      <Section title="Ended"     indicator="red"    filter="ended"    addresses={addresses} search={search} chainFilter={chainFilter} />
     </>
   );
 }
 
 function Section({
-  id, title, indicator, pulse, addresses, filter, search, chainFilter,
+  title, indicator, filter, addresses, search, chainFilter, pulse,
 }: {
-  id?: string;
   title: string;
   indicator: "green" | "yellow" | "red";
-  pulse?: boolean;
-  addresses: Address[];
   filter: Category;
+  addresses: Address[];
   search: string;
   chainFilter?: number;
+  pulse?: boolean;
 }) {
-  const dotColor = {
-    green: "bg-green-400",
-    yellow: "bg-yellow-400",
-    red: "bg-red-400",
-  }[indicator];
+  const dotColor = { green: "bg-green-400", yellow: "bg-yellow-400", red: "bg-red-400" }[indicator];
 
   return (
-    <section id={id} className="py-12 border-b border-border last:border-0">
+    <section className="py-12 border-b border-border last:border-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5 mb-6">
-          <span className={`relative flex h-2 w-2`}>
-            {indicator === "green" && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            )}
+          <span className="relative flex h-2 w-2">
+            {pulse && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-75`} />}
             <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`} />
           </span>
           <h2 className="text-xl font-semibold text-main-text">{title}</h2>
