@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import {
   useCollectionInfo,
   useTotalPhases,
@@ -49,6 +50,12 @@ export default function CollectionPage() {
   const bannerUrl = toGateway(metadata?.banner);
   const logoUrl = toGateway(metadata?.image ?? (placeholderURI as string | undefined));
 
+  // Chain-specific values
+  const isBase = chainId === 8453;
+  const chainImg = isBase ? "/Base.png" : "/Ethereum.png";
+  const chainLabel = isBase ? "Base" : "Ethereum";
+  const etherscanBase = isBase ? "https://basescan.org" : "https://etherscan.io";
+
   if (!isAddress(address)) {
     return <div className="mx-auto max-w-7xl px-4 py-24 text-center text-red-400">Invalid collection address</div>;
   }
@@ -79,8 +86,6 @@ export default function CollectionPage() {
           <div className="h-full w-full bg-gradient-to-br from-accent-blue/20 to-background" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-
-        {/* Description overlaid on banner */}
         {metadata?.description && (
           <div className="absolute bottom-4 left-4 right-4 max-w-lg">
             <p className="text-xs text-white/80 leading-relaxed line-clamp-2 drop-shadow">
@@ -132,43 +137,62 @@ export default function CollectionPage() {
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-panel">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-accent-blue to-blue-400 transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-accent-blue to-yellow-400/60 transition-all"
               style={{ width: `${Math.max(pct, pct > 0 ? 2 : 0)}%` }}
             />
           </div>
         </div>
 
-        {/* Tag chips */}
+        {/* Tag chips — images instead of emojis */}
         <div className="mb-4 flex items-center gap-2 flex-wrap">
+          {/* Contract address */}
           <a
-            href={`https://etherscan.io/address/${address}`}
+            href={`${etherscanBase}/address/${address}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text hover:text-main-text transition-colors font-mono"
+            className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text hover:text-main-text transition-colors font-mono"
           >
-            ◆ {shortenAddress(address)}
+            <Image src="/Arc.jpg" alt="Contract" width={12} height={12} className="rounded-full" />
+            {shortenAddress(address)}
           </a>
-          <span className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
-            📄 ERC721
+
+          {/* ERC721 */}
+          <span className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
+            <Image src="/Erc.jpg" alt="ERC721" width={12} height={12} className="rounded-full" />
+            ERC721
           </span>
+
+          {/* Chain */}
+          <span className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
+            <Image src={chainImg} alt={chainLabel} width={12} height={12} className="rounded-full" />
+            {chainLabel}
+          </span>
+
+          {/* Minting status — green dot indicator */}
           {!soldOut && phaseIds.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-xs text-green-400">
-              ✨ Minting
+            <span className="flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-xs text-green-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+              </span>
+              Minting
             </span>
           )}
+
           {soldOut && (
-            <span className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
-              ✓ Sold Out
+            <span className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-text">
+              Sold Out
             </span>
           )}
+
           {meta?.featured && !soldOut && (
-            <span className="flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs text-orange-400">
+            <span className="flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs text-orange-400">
               <Flame size={10} /> Hot
             </span>
           )}
         </div>
 
-        {/* Social links (icon only + OpenSea auto) */}
+        {/* Social links */}
         <div className="mb-6">
           <SocialLinks address={address} />
         </div>
@@ -194,7 +218,7 @@ export default function CollectionPage() {
           <MintProgress collection={address} platformFlatFee={platformFlatFee} />
         </div>
 
-        {/* Activity feed — inline, no tab */}
+        {/* Activity feed */}
         <div>
           <h3 className="text-sm font-semibold text-main-text mb-3">Recent Activity</h3>
           <ActivityFeed collection={address} chainId={chainId} />
@@ -204,7 +228,6 @@ export default function CollectionPage() {
   );
 }
 
-// Phase card with eligibility badge
 function PhaseCard({ collection, phaseId, userAddress, isAdmin }: {
   collection: Address;
   phaseId: number;
@@ -215,12 +238,6 @@ function PhaseCard({ collection, phaseId, userAddress, isAdmin }: {
     address: collection,
     abi: COLLECTION_ABI,
     functionName: 'getPhase',
-    args: [BigInt(phaseId)],
-  });
-  const { data: phaseMinted } = useReadContract({
-    address: collection,
-    abi: COLLECTION_ABI,
-    functionName: 'phaseMinted',
     args: [BigInt(phaseId)],
   });
 
@@ -269,12 +286,9 @@ function PhaseCard({ collection, phaseId, userAddress, isAdmin }: {
               </span>
             )}
           </div>
-
           <div className="flex items-center gap-3 text-xs text-muted-text flex-wrap">
             <span className="font-mono">{phase.price === 0n ? 'Free' : `${formatEther(phase.price)} ETH`}</span>
-            {phase.maxPerWallet > 0 && (
-              <span>Limit: {phase.maxPerWallet} per wallet</span>
-            )}
+            {phase.maxPerWallet > 0 && <span>Limit: {phase.maxPerWallet} per wallet</span>}
             {phase.startTime > 0n && (
               <span className="flex items-center gap-1">
                 <Clock size={10} />
@@ -286,7 +300,6 @@ function PhaseCard({ collection, phaseId, userAddress, isAdmin }: {
           </div>
         </div>
 
-        {/* Eligibility badge — only show if wallet connected */}
         {userAddress && (
           <div className="shrink-0">
             {eligibility === 'checking' && (
@@ -311,17 +324,13 @@ function PhaseCard({ collection, phaseId, userAddress, isAdmin }: {
   );
 }
 
-// Activity feed — inline, no tab needed
-type MintEvent = {
-  minter: string;
-  quantity: bigint;
-  txHash: string;
-};
+type MintEvent = { minter: string; quantity: bigint; txHash: string };
 
 function ActivityFeed({ collection, chainId }: { collection: Address; chainId: number }) {
   const [events, setEvents] = useState<MintEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const publicClient = usePublicClient();
+  const etherscanBase = chainId === 8453 ? 'https://basescan.org' : 'https://etherscan.io';
 
   useEffect(() => {
     if (!publicClient) return;
@@ -340,24 +349,20 @@ function ActivityFeed({ collection, chainId }: { collection: Address; chainId: n
       fromBlock: "earliest",
     })
       .then((logs) => {
-        setEvents(
-          logs.slice(-15).reverse().map((log) => ({
-            minter: log.args.minter as string,
-            quantity: log.args.quantity as bigint,
-            txHash: log.transactionHash ?? "",
-          }))
-        );
+        setEvents(logs.slice(-15).reverse().map((log) => ({
+          minter: log.args.minter as string,
+          quantity: log.args.quantity as bigint,
+          txHash: log.transactionHash ?? "",
+        })));
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   }, [collection, publicClient]);
 
-  const etherscanBase = chainId === 8453 ? 'https://basescan.org' : 'https://etherscan.io';
-
   if (loading) {
     return (
       <div className="space-y-2">
-        {[...Array(4)].map((_, i) => (
+        {[...Array(3)].map((_, i) => (
           <div key={i} className="h-12 animate-pulse rounded-xl bg-panel" />
         ))}
       </div>
@@ -382,9 +387,7 @@ function ActivityFeed({ collection, chainId }: { collection: Address; chainId: n
           <div className="flex-1 min-w-0">
             <p className="text-sm text-main-text">
               <span className="font-mono text-xs">{shortenAddress(event.minter)}</span>
-              {" "}
-              <span className="text-muted-text">minted</span>
-              {" "}
+              {" "}<span className="text-muted-text">minted</span>{" "}
               <span className="font-semibold">{event.quantity.toString()} NFT{event.quantity > 1n ? "s" : ""}</span>
             </p>
           </div>
