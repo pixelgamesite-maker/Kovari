@@ -162,13 +162,11 @@ function CollectionSections({
     );
   }
 
-  // Invisible probes — each card self-categorizes then reports up
   const live = addresses.filter((a) => categorized[a] === "live");
   const upcoming = addresses.filter((a) => categorized[a] === "upcoming");
   const ended = addresses.filter((a) => categorized[a] === "ended");
   const noneYet = live.length === 0 && upcoming.length === 0 && ended.length === 0;
 
-  // When filter is active, flatten into one grid
   if (activeFilter !== "all") {
     const filtered = activeFilter === "featured"
       ? addresses
@@ -218,8 +216,7 @@ function CollectionSections({
         <Section
           id="discover"
           title="Live Now"
-          icon={<TrendingUp className="h-5 w-5 text-accent-blue" />}
-          pulse
+          indicator="green"
           addresses={live}
           filter="live"
           search={search}
@@ -228,8 +225,8 @@ function CollectionSections({
       )}
       {upcoming.length > 0 && (
         <Section
-          title="Coming Soon"
-          icon={<Clock className="h-5 w-5 text-yellow-400" />}
+          title="Upcoming"
+          indicator="yellow"
           addresses={upcoming}
           filter="upcoming"
           search={search}
@@ -238,8 +235,8 @@ function CollectionSections({
       )}
       {ended.length > 0 && (
         <Section
-          title="Past Drops"
-          icon={<CheckCircle className="h-5 w-5 text-muted-text" />}
+          title="Ended"
+          indicator="red"
           addresses={ended}
           filter="ended"
           search={search}
@@ -251,23 +248,34 @@ function CollectionSections({
 }
 
 function Section({
-  id, title, icon, pulse, addresses, filter, search, chainFilter,
+  id, title, indicator, pulse, addresses, filter, search, chainFilter,
 }: {
-  id?: string; title: string; icon: React.ReactNode; pulse?: boolean;
-  addresses: Address[]; filter: Category; search: string; chainFilter?: number;
+  id?: string;
+  title: string;
+  indicator: "green" | "yellow" | "red";
+  pulse?: boolean;
+  addresses: Address[];
+  filter: Category;
+  search: string;
+  chainFilter?: number;
 }) {
+  const dotColor = {
+    green: "bg-green-400",
+    yellow: "bg-yellow-400",
+    red: "bg-red-400",
+  }[indicator];
+
   return (
     <section id={id} className="py-12 border-b border-border last:border-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 mb-6">
-          {icon}
+        <div className="flex items-center gap-2.5 mb-6">
+          <span className={`relative flex h-2 w-2`}>
+            {indicator === "green" && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            )}
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`} />
+          </span>
           <h2 className="text-xl font-semibold text-main-text">{title}</h2>
-          {pulse && (
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-blue opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-blue" />
-            </span>
-          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {addresses.map((address) => (
